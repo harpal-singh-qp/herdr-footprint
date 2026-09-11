@@ -26,7 +26,7 @@ has already burned — whichever agent that is.
 </div>
 
 <div align="center">
-<img src="assets/sidebar.png" alt="The herdr spaces sidebar: each space shows its branch and git status, then a context percentage and a disk figure" width="262">
+<img src="assets/sidebar.png" alt="The herdr spaces sidebar: each space shows its branch and git status, then a context percentage and a disk figure; the agents panel below carries the same context meter per agent" width="356">
 </div>
 
 ## Why you'd want it
