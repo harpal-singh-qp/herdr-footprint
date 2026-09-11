@@ -1,6 +1,6 @@
 id = "footprint"
 name = "Footprint"
-version = "0.1.0"
+version = "0.2.0"
 min_herdr_version = "0.7.5"
 description = "Per-space disk footprint and context usage in the Herdr sidebar."
 platforms = ["linux", "macos"]
@@ -26,3 +26,16 @@ id = "stop"
 title = "Footprint: stop poller"
 contexts = ["global"]
 command = ["bash", "bin/poll.sh", "--stop"]
+
+[[actions]]
+id = "reclaim"
+title = "Footprint: what can I reclaim?"
+description = "Scan for reclaimable space, classified SAFE / REVIEW / BLOCKED. Read-only."
+contexts = ["global", "workspace"]
+command = ["bash", "bin/open-reclaim.sh"]
+
+[[panes]]
+id = "reclaim"
+title = "Reclaimable space"
+placement = "overlay"
+command = ["bash", "-c", "exec bash \"$HERDR_PLUGIN_ROOT/bin/reclaim-pane.sh\""]

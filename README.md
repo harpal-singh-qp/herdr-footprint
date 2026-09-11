@@ -17,6 +17,7 @@ has already burned — whichever agent that is.
   <a href="#why-youd-want-it">why</a> ·
   <a href="#install">install</a> ·
   <a href="#tokens">tokens</a> ·
+  <a href="#the-reclaim-pane">reclaim</a> ·
   <a href="#how-it-works">how it works</a> ·
   <a href="#configuration">configuration</a> ·
   <a href="#roadmap">roadmap</a>
@@ -146,10 +147,63 @@ already knows the window.
 | `FOOTPRINT_DISK_ICON` | `⛁` | |
 | `FOOTPRINT_CTX_ICON` | `◐` | |
 
+## The reclaim pane
+
+Sidebar tokens tell you *that* a space is expensive. The reclaim pane tells you
+*what you can do about it*:
+
+```
+footprint · reclaimable space   scanned in 4.6s · read-only, nothing was deleted
+
+  SAFE     7.8G   REVIEW    12.7G   BLOCKED    49.5G
+
+  SAFE
+     4.9G  44 idle layers              docker build cache · rebuildable by definition
+     1.6G  dangling sha256:3d8dd       docker image · untagged layer, nothing references it
+  REVIEW
+     2.6G  backend-e2e-ci:latest       docker image · no container uses it; may be a base
+     1.9G  claude (~/.claude/projects) agent transcripts · your own history
+  BLOCKED
+    25.2G  app_mysql-container-volume  docker volume · in use by 1 container(s)
+     2.1G  repo/feature-branch         git worktree · branch not merged into the base
+     1.9G  repo/other-branch           git worktree · uncommitted changes
+```
+
+Open it with `footprint.reclaim`, or bind a key:
+
+```toml
+[[keys.command]]
+key = "prefix+shift+k"
+type = "shell"
+command = "herdr plugin action invoke reclaim --plugin footprint"
+description = "footprint: what can I reclaim?"
+```
+
+`r` rescans, `q` closes. The report adapts to the pane width, so it stays readable
+in a narrow split.
+
+### The three classes
+
+| Class | Means | Examples |
+| --- | --- | --- |
+| **SAFE** | Rebuildable by definition, or merged and idle ≥ 7 days | idle build cache, dangling images, merged stale worktrees |
+| **REVIEW** | Provably unused, but holds something worth a glance | untagged-but-unused images, unused volumes, agent transcripts |
+| **BLOCKED** | A fence failed — **always shown with the reason** | in-use volumes, unmerged branches, uncommitted changes, the worktree you are standing in |
+
+A BLOCKED row is not a failure to classify. It is the answer: *this is why that
+space is not yours yet.* Hiding it would just make you go looking.
+
+Figures are reconciled against the tools themselves — build cache excludes shared
+layers, so the total matches `docker system df`'s own RECLAIMABLE column rather than
+inflating it roughly fourfold.
+
+**v0.2 deletes nothing.** It runs `docker system df`, `git`, and `du`, and prints.
+
 ## Actions
 
 | Action | Does |
 | --- | --- |
+| `footprint.reclaim` | Open the reclaim pane |
 | `footprint.refresh` | Run one measurement cycle now |
 | `footprint.start` | Start the poller |
 | `footprint.stop` | Stop the poller |
@@ -170,15 +224,12 @@ description = "footprint: refresh"
 - **Pidfile guard.** A herdr restart cannot stack pollers.
 - **Tokens carry a TTL of three cycles.** A stopped poller fades its numbers out
   rather than leaving a stale figure on screen forever.
-- **Read-only.** v0.1 measures. It never deletes anything.
+- **Read-only.** v0.2 measures and reports. It never deletes anything.
 
 State lives in `$HERDR_PLUGIN_STATE_DIR` — a size cache, a pidfile, and a log.
 
 ## Roadmap
 
-- **v0.2** — an overlay pane breaking the machine down by what is *reclaimable*:
-  Docker images, volumes and build cache, agent transcripts, stale worktrees, dead
-  `node_modules` — each classified SAFE / REVIEW / BLOCKED.
 - **v0.3** — reclaim, itemised, behind a confirmation, with a git bundle taken before
   any worktree or branch is removed. Never a blanket prune.
 
