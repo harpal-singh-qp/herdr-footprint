@@ -1,24 +1,67 @@
+<div align="center">
+
 # herdr-diskspace
 
-**What a space costs you** — disk footprint and context usage, per space, in the Herdr sidebar.
+### What each space actually costs you — in disk, and in context.
+
+Two numbers per space in your [herdr](https://herdr.dev) sidebar: how much disk its
+git worktree occupies, and how much of its context window the busiest agent in it
+has already burned.
+
+<img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
+<img alt="herdr" src="https://img.shields.io/badge/herdr-%E2%89%A5%200.7.5-5865a3">
+<img alt="Platforms" src="https://img.shields.io/badge/Linux%20%C2%B7%20macOS-supported-2ea44f">
+<img alt="Runtime" src="https://img.shields.io/badge/bash%20%2B%20python3-no%20toolchain-orange">
+
+<p>
+  <a href="#why-youd-want-it">why</a> ·
+  <a href="#install">install</a> ·
+  <a href="#tokens">tokens</a> ·
+  <a href="#how-it-works">how it works</a> ·
+  <a href="#configuration">configuration</a> ·
+  <a href="#roadmap">roadmap</a>
+</p>
+
+</div>
 
 ```
-◐ 84%   ⛁ 2.1G      portal-content-design
-◐ 93%   ⛁ 46.2M     fm-captain
+  ● fluorite-monitoring
+    hp-sep08-community-agent-v7  ↑21
+    ◐ --      ⛁ 2.1G
+
+  ● portal-content-design
+    hp-sep08-community-agent-v7  ↑21  ?97
+    ◐ 84%     ⛁ 2.1G
+
+  ● fm-captain
+    main  ✓
+    ◐ 94%     ⛁ 46.2M
 ```
 
-Every other Herdr sidebar plugin reports machine-level metrics or agent-level
-metrics. This one reports **per space**: how much disk the space's git worktree
-occupies, and how much of its context window the busiest agent in it has burned.
-Those are the two numbers that decide whether a space is finished with you.
+## Why you'd want it
+
+You can see which agent is blocked. You cannot see which space is about to run out
+of context, or which one is quietly holding 13 GB of `node_modules` you stopped
+needing three branches ago.
+
+Every other sidebar plugin reports **per machine** (CPU, RAM, free disk) or **per
+agent** (tokens, rate limits). Those are the wrong units for a decision you make per
+space: *is this one finished with me?*
+
+- **`◐ 94%`** — that space is one long turn from a compaction you did not plan.
+- **`⛁ 13.2G`** — that space is why your disk alert fired.
+
+Both answers, without focusing the tab.
 
 ## Install
 
 ```bash
-herdr plugin install <owner>/herdr-diskspace
+herdr plugin install harpal-singh-qp/herdr-diskspace
 ```
 
-Then add the tokens to your space rows in `~/.config/herdr/config.toml`:
+No toolchain, no compile step — bash and python3, both of which you already have.
+
+Then reference the tokens in your space rows in `~/.config/herdr/config.toml`:
 
 ```toml
 [ui.sidebar.spaces]
@@ -33,7 +76,13 @@ rows = [
 herdr server reload-config
 ```
 
-On Herdr 0.9.0+ you can colour by value instead of flat text:
+That is the whole setup. The poller starts itself on the next herdr launch, or
+immediately with `herdr plugin action invoke start --plugin diskspace`.
+
+### Colour by value (herdr 0.9.0+)
+
+On 0.9.0 and later, tokens can restyle themselves by value — so a space turns amber
+as it fills and red before it bites:
 
 ```toml
   [{ token = "$ctx", fg = "#89b4fa", rules = [
@@ -49,33 +98,34 @@ On Herdr 0.9.0+ you can colour by value instead of flat text:
 | `$disk` | `⛁ 2.1G` | Size of the space's git worktree root (`du -sx`) |
 | `$ctx` | `◐ 84%` | Largest context-window share among the space's Claude panes |
 
-Both fall back to `--` rather than vanishing, so a row never collapses.
+Both fall back to `--` instead of vanishing, so a configured row never collapses.
 
 ## How it works
 
-A `[[startup]]` hook detaches a poll loop, because Herdr's startup hook is
-one-shot. Each cycle the loop:
+A `[[startup]]` hook detaches a poll loop, because herdr's startup hook is one-shot.
+Each cycle:
 
-1. Lists spaces, and resolves each one's directory from its first pane's `cwd`.
-2. Resolves that to the **git worktree root** — several spaces commonly live in
-   subdirectories of one checkout, and the worktree is what occupies disk.
+1. Lists spaces, resolving each one's directory from its first pane's `cwd`.
+2. Resolves that to the **git worktree root**. Several spaces commonly live in
+   subdirectories of one checkout, and the worktree is what occupies disk — measuring
+   `cwd` would report a subdirectory as if it were the whole cost.
 3. Pushes `$disk` (from cache) and `$ctx` via `workspace report-metadata`.
-4. Re-measures **exactly one** worktree per cycle: the stalest one past its TTL.
+4. Re-measures **exactly one** worktree: the stalest one past its TTL.
 
-Step 4 is the whole design. A 13 GB checkout takes ~14 s to walk, so measuring
-every space every tick would keep a core busy forever. One walk per cycle keeps
-the sidebar populated without the plugin ever being the reason your fan spins.
+Step 4 is the design. A 13 GB checkout takes ~14 s to walk and a 2 GB one ~5 s, so
+measuring every space every tick would keep a core busy permanently. One walk per
+cycle keeps the sidebar populated without this plugin ever being why your fan spins.
 
-### Context window inference
+### Context-window inference
 
-Claude transcripts record token usage but never the context window. A session
-that has already passed 200k tokens proves it is on the 1M window, so the window
-is inferred from observed usage rather than guessed. Pin it with
-`DISKSPACE_CONTEXT_WINDOW` if you prefer.
+Claude transcripts record token usage but never the context window. A session that
+has already passed 200k tokens proves it is on the 1M window, so the window is
+inferred from observed usage rather than assumed. Pin it with
+`DISKSPACE_CONTEXT_WINDOW` if you would rather be explicit.
 
 ## Configuration
 
-`$HERDR_PLUGIN_CONFIG_DIR/config.env` — shell syntax, all optional:
+`$HERDR_PLUGIN_CONFIG_DIR/config.env` — shell syntax, every key optional:
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
@@ -89,28 +139,46 @@ is inferred from observed usage rather than guessed. Pin it with
 
 | Action | Does |
 | --- | --- |
-| `diskspace.refresh` | Run one cycle now |
-| `diskspace.start` / `diskspace.stop` | Control the poller |
+| `diskspace.refresh` | Run one measurement cycle now |
+| `diskspace.start` | Start the poller |
+| `diskspace.stop` | Stop the poller |
+
+Bind one if you like:
+
+```toml
+[[keys.command]]
+key = "prefix+shift+k"
+type = "shell"
+command = "herdr plugin action invoke refresh --plugin diskspace"
+description = "diskspace: refresh"
+```
 
 ## Reliability
 
-- No `set -e` in the loop — one failed measurement never kills the poller.
-- Pidfile guard, so a Herdr restart cannot stack pollers.
-- Tokens carry a TTL of three cycles: a stopped poller fades its numbers out
-  instead of leaving a stale figure on screen.
-- Read-only. v0.1 measures and never deletes.
+- **No `set -e` in the loop.** One failed measurement never kills the poller.
+- **Pidfile guard.** A herdr restart cannot stack pollers.
+- **Tokens carry a TTL of three cycles.** A stopped poller fades its numbers out
+  rather than leaving a stale figure on screen forever.
+- **Read-only.** v0.1 measures. It never deletes anything.
+
+State lives in `$HERDR_PLUGIN_STATE_DIR` — a size cache, a pidfile, and a log.
 
 ## Roadmap
 
 - **v0.2** — an overlay pane breaking the machine down by what is *reclaimable*:
-  Docker images, volumes and build cache, agent transcripts, stale worktrees,
-  dead `node_modules` — each classified SAFE / REVIEW / BLOCKED.
-- **v0.3** — reclaim, itemised, behind a confirmation, with a git bundle taken
-  before any worktree or branch is removed. Never a blanket prune.
+  Docker images, volumes and build cache, agent transcripts, stale worktrees, dead
+  `node_modules` — each classified SAFE / REVIEW / BLOCKED.
+- **v0.3** — reclaim, itemised, behind a confirmation, with a git bundle taken before
+  any worktree or branch is removed. Never a blanket prune.
 
 ## Requirements
 
-Herdr ≥ 0.7.5 · bash · python3 · git · Linux or macOS
+herdr ≥ 0.7.5 · bash · python3 · git · Linux or macOS
+
+## Contributing
+
+Issues and PRs welcome. The plugin is four small scripts; `bin/collect.sh` is where
+almost everything happens.
 
 ## License
 
