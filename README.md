@@ -25,19 +25,9 @@ has already burned — whichever agent that is.
 
 </div>
 
-```
-  ● api-gateway
-    feat/rate-limiting  ↑12
-    ◐ 41%     ⛁ 1.4G
-
-  ● web-dashboard
-    main  ?23
-    ◐ 87%     ⛁ 4.8G
-
-  ● docs-site
-    main  ✓
-    ◐ --      ⛁ 62M
-```
+<div align="center">
+<img src="assets/sidebar.png" alt="The herdr spaces sidebar: each space shows its branch and git status, then a context percentage and a disk figure" width="262">
+</div>
 
 ## Why you'd want it
 
@@ -152,22 +142,7 @@ already knows the window.
 Sidebar tokens tell you *that* a space is expensive. The reclaim pane tells you
 *what you can do about it*:
 
-```
-footprint · reclaimable space   scanned in 4.6s · read-only, nothing was deleted
-
-  SAFE     7.8G   REVIEW    12.7G   BLOCKED    49.5G
-
-  SAFE
-     4.9G  44 idle layers              docker build cache · rebuildable by definition
-     1.6G  dangling sha256:3d8dd       docker image · untagged layer, nothing references it
-  REVIEW
-     2.6G  backend-e2e-ci:latest       docker image · no container uses it; may be a base
-     1.9G  claude (~/.claude/projects) agent transcripts · your own history
-  BLOCKED
-    25.2G  app_mysql-container-volume  docker volume · in use by 1 container(s)
-     2.1G  repo/feature-branch         git worktree · branch not merged into the base
-     1.9G  repo/other-branch           git worktree · uncommitted changes
-```
+<img src="assets/reclaim.png" alt="The reclaim pane: totals for SAFE, REVIEW and BLOCKED, then every item sorted by size with the reason it falls in that class" width="926">
 
 Open it with `footprint.reclaim`, or bind a key:
 
