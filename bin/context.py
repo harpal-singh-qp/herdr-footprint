@@ -1,22 +1,50 @@
 #!/usr/bin/env python3
-"""Largest context share among the Claude panes of one space.
+"""Largest context share among the agent panes of one space.
 
 Reads `herdr pane list` JSON on stdin, prints a whole-number percentage, or
-nothing when no pane has a readable transcript. argv[1] pins the context
-window; 0 means infer it.
+nothing when no pane reports one. argv[1] pins the context window for the
+transcript fallback; 0 means infer it.
+
+Two sources, in order:
+
+1. A `context` metadata token on the pane. Plugins such as herdr-agent-usage
+   publish one for Claude, Codex, OpenCode, Grok, Pi, omp, Cursor and direct
+   API backends. Preferring it means this plugin covers every provider those
+   plugins cover, and never has to track a transcript format it does not own.
+2. Claude's own transcript, so a space still reports something useful when no
+   usage plugin is installed.
 """
 import glob
 import json
 import os
+import re
 import sys
 
 WINDOW_SMALL = 200_000
 WINDOW_LARGE = 1_000_000
 TAIL_BYTES = 400_000
 
+# Matches the percentage in values like "⚠️ 83% (827k)" or "31%".
+PERCENT = re.compile(r"(\d{1,3})\s*%")
 
-def session_tokens(uuid):
-    """Context tokens of the most recent recorded turn: input + both cache halves."""
+
+def token_percent(pane):
+    """Percentage from a pane's `context` token, if a usage plugin published one."""
+    value = (pane.get("tokens") or {}).get("context")
+    if not value:
+        return 0
+    match = PERCENT.search(str(value))
+    if not match:
+        return 0
+    pct = int(match.group(1))
+    return pct if 0 <= pct <= 100 else 0
+
+
+def transcript_percent(pane, forced):
+    """Fallback: Claude's transcript, keyed by the pane's agent session id."""
+    uuid = (pane.get("agent_session") or {}).get("value")
+    if not uuid:
+        return 0
     hits = glob.glob(os.path.expanduser(f"~/.claude/projects/*/{uuid}.jsonl"))
     if not hits:
         return 0
@@ -32,11 +60,14 @@ def session_tokens(uuid):
             usage = (json.loads(line).get("message") or {}).get("usage") or {}
         except ValueError:
             continue
-        total = (usage.get("input_tokens", 0)
-                 + usage.get("cache_read_input_tokens", 0)
-                 + usage.get("cache_creation_input_tokens", 0))
-        if total:
-            return total
+        used = (usage.get("input_tokens", 0)
+                + usage.get("cache_read_input_tokens", 0)
+                + usage.get("cache_creation_input_tokens", 0))
+        if used:
+            # The transcript never records the context window. A session that
+            # has already passed 200k proves it is on the 1M window.
+            window = forced or (WINDOW_LARGE if used > WINDOW_SMALL else WINDOW_SMALL)
+            return round(100 * used / window)
     return 0
 
 
@@ -46,18 +77,8 @@ def main():
         panes = json.load(sys.stdin)["result"]["panes"]
     except (ValueError, KeyError, TypeError):
         return
-    best = 0
-    for pane in panes:
-        uuid = (pane.get("agent_session") or {}).get("value")
-        if not uuid:
-            continue
-        used = session_tokens(uuid)
-        if not used:
-            continue
-        # The transcript never records the context window. A session that has
-        # already passed 200k proves it is on the 1M window, so infer it.
-        window = forced or (WINDOW_LARGE if used > WINDOW_SMALL else WINDOW_SMALL)
-        best = max(best, round(100 * used / window))
+    best = max((token_percent(p) or transcript_percent(p, forced) for p in panes),
+               default=0)
     if best:
         print(best)
 

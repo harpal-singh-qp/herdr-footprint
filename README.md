@@ -6,7 +6,7 @@
 
 Two numbers per space in your [herdr](https://herdr.dev) sidebar: how much disk its
 git worktree occupies, and how much of its context window the busiest agent in it
-has already burned.
+has already burned — whichever agent that is.
 
 <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
 <img alt="herdr" src="https://img.shields.io/badge/herdr-%E2%89%A5%200.7.5-5865a3">
@@ -96,7 +96,7 @@ as it fills and red before it bites:
 | Token | Example | Meaning |
 | --- | --- | --- |
 | `$disk` | `⛁ 2.1G` | Size of the space's git worktree root (`du -sx`) |
-| `$ctx` | `◐ 84%` | Largest context-window share among the space's Claude panes |
+| `$ctx` | `◐ 84%` | Largest context-window share among the space's agent panes |
 
 Both fall back to `--` instead of vanishing, so a configured row never collapses.
 
@@ -116,12 +116,23 @@ Step 4 is the design. A 13 GB checkout takes ~14 s to walk and a 2 GB one ~5 s, 
 measuring every space every tick would keep a core busy permanently. One walk per
 cycle keeps the sidebar populated without this plugin ever being why your fan spins.
 
-### Context-window inference
+### Where context comes from
 
-Claude transcripts record token usage but never the context window. A session that
-has already passed 200k tokens proves it is on the 1M window, so the window is
-inferred from observed usage rather than assumed. Pin it with
-`FOOTPRINT_CONTEXT_WINDOW` if you would rather be explicit.
+Two sources, in order:
+
+1. **A `context` metadata token on the pane.** Usage plugins such as
+   [herdr-agent-usage](https://github.com/senna-lang/herdr-agent-usage) publish one
+   per pane for Claude, Codex, OpenCode, Grok, Pi, omp, Cursor and direct API
+   backends. Preferring it means footprint covers every provider those plugins
+   cover, and never has to track a transcript format it does not own.
+2. **Claude's own transcript**, so a space still reports something useful when no
+   usage plugin is installed.
+
+Source 2 has a wrinkle: Claude transcripts record token usage but never the context
+window. A session that has already passed 200k tokens proves it is on the 1M window,
+so the window is inferred rather than assumed. Pin it with `FOOTPRINT_CONTEXT_WINDOW`
+if you would rather be explicit. Source 1 needs none of this — the publishing plugin
+already knows the window.
 
 ## Configuration
 
