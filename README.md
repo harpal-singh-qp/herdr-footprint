@@ -1,6 +1,6 @@
 <div align="center">
 
-# herdr-diskspace
+# herdr-footprint
 
 ### What each space actually costs you — in disk, and in context.
 
@@ -56,7 +56,7 @@ Both answers, without focusing the tab.
 ## Install
 
 ```bash
-herdr plugin install harpal-singh-qp/herdr-diskspace
+herdr plugin install harpal-singh-qp/herdr-footprint
 ```
 
 No toolchain, no compile step — bash and python3, both of which you already have.
@@ -77,7 +77,7 @@ herdr server reload-config
 ```
 
 That is the whole setup. The poller starts itself on the next herdr launch, or
-immediately with `herdr plugin action invoke start --plugin diskspace`.
+immediately with `herdr plugin action invoke start --plugin footprint`.
 
 ### Colour by value (herdr 0.9.0+)
 
@@ -121,7 +121,7 @@ cycle keeps the sidebar populated without this plugin ever being why your fan sp
 Claude transcripts record token usage but never the context window. A session that
 has already passed 200k tokens proves it is on the 1M window, so the window is
 inferred from observed usage rather than assumed. Pin it with
-`DISKSPACE_CONTEXT_WINDOW` if you would rather be explicit.
+`FOOTPRINT_CONTEXT_WINDOW` if you would rather be explicit.
 
 ## Configuration
 
@@ -129,19 +129,19 @@ inferred from observed usage rather than assumed. Pin it with
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `DISKSPACE_CADENCE_SEC` | `60` | Seconds between push cycles |
-| `DISKSPACE_REMEASURE_SEC` | `900` | Minimum age before a worktree is walked again |
-| `DISKSPACE_CONTEXT_WINDOW` | `0` | `0` infers; set e.g. `200000` to pin |
-| `DISKSPACE_DISK_ICON` | `⛁` | |
-| `DISKSPACE_CTX_ICON` | `◐` | |
+| `FOOTPRINT_CADENCE_SEC` | `60` | Seconds between push cycles |
+| `FOOTPRINT_REMEASURE_SEC` | `900` | Minimum age before a worktree is walked again |
+| `FOOTPRINT_CONTEXT_WINDOW` | `0` | `0` infers; set e.g. `200000` to pin |
+| `FOOTPRINT_DISK_ICON` | `⛁` | |
+| `FOOTPRINT_CTX_ICON` | `◐` | |
 
 ## Actions
 
 | Action | Does |
 | --- | --- |
-| `diskspace.refresh` | Run one measurement cycle now |
-| `diskspace.start` | Start the poller |
-| `diskspace.stop` | Stop the poller |
+| `footprint.refresh` | Run one measurement cycle now |
+| `footprint.start` | Start the poller |
+| `footprint.stop` | Stop the poller |
 
 Bind one if you like:
 
@@ -149,8 +149,8 @@ Bind one if you like:
 [[keys.command]]
 key = "prefix+shift+k"
 type = "shell"
-command = "herdr plugin action invoke refresh --plugin diskspace"
-description = "diskspace: refresh"
+command = "herdr plugin action invoke refresh --plugin footprint"
+description = "footprint: refresh"
 ```
 
 ## Reliability

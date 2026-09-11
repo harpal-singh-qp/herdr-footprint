@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# lib.sh — shared helpers for herdr-diskspace. Sourced, never executed.
+# lib.sh — shared helpers for herdr-footprint. Sourced, never executed.
 #
 # No `set -e` anywhere in this plugin: a single failed measurement or CLI call
 # must never kill the poll loop. Every helper returns a usable value or the
@@ -8,18 +8,18 @@
 HERDR_BIN="${HERDR_BIN_PATH:-herdr}"
 STATE_DIR="${HERDR_PLUGIN_STATE_DIR:-${HERDR_PLUGIN_ROOT:-$PWD}/.state}"
 CACHE_DIR="$STATE_DIR/cache"
-PIDFILE="$STATE_DIR/diskspace.pid"
-LOGFILE="$STATE_DIR/diskspace.log"
+PIDFILE="$STATE_DIR/footprint.pid"
+LOGFILE="$STATE_DIR/footprint.log"
 PLACEHOLDER="--"
 
 # Config, overridable from the environment or the plugin config file.
 CONFIG_FILE="${HERDR_PLUGIN_CONFIG_DIR:-$STATE_DIR}/config.env"
 [ -r "$CONFIG_FILE" ] && . "$CONFIG_FILE"
-: "${DISKSPACE_CADENCE_SEC:=60}"      # seconds between push cycles
-: "${DISKSPACE_REMEASURE_SEC:=900}"   # re-`du` a worktree at most this often
-: "${DISKSPACE_CONTEXT_WINDOW:=0}"    # 0 = infer from observed usage
-: "${DISKSPACE_DISK_ICON:=⛁}"
-: "${DISKSPACE_CTX_ICON:=◐}"
+: "${FOOTPRINT_CADENCE_SEC:=60}"      # seconds between push cycles
+: "${FOOTPRINT_REMEASURE_SEC:=900}"   # re-`du` a worktree at most this often
+: "${FOOTPRINT_CONTEXT_WINDOW:=0}"    # 0 = infer from observed usage
+: "${FOOTPRINT_DISK_ICON:=⛁}"
+: "${FOOTPRINT_CTX_ICON:=◐}"
 
 log() { printf '%s %s\n' "$(date +%FT%T)" "$*" >>"$LOGFILE" 2>/dev/null; }
 

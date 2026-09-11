@@ -37,10 +37,10 @@ case "${1:---run}" in
     running && exit 0
     printf '%s' "$$" >"$PIDFILE"
     trap 'rm -f "$PIDFILE"' EXIT
-    log "poller start pid=$$ cadence=${DISKSPACE_CADENCE_SEC}s remeasure=${DISKSPACE_REMEASURE_SEC}s"
+    log "poller start pid=$$ cadence=${FOOTPRINT_CADENCE_SEC}s remeasure=${FOOTPRINT_REMEASURE_SEC}s"
     while :; do
       bash "$SELF_DIR/collect.sh" || log "cycle failed"
-      sleep "$DISKSPACE_CADENCE_SEC"
+      sleep "$FOOTPRINT_CADENCE_SEC"
     done
     ;;
   *)

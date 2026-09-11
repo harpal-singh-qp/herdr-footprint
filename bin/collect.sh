@@ -30,7 +30,7 @@ for p in panes:
 # because that is the number that answers "can this space take another turn?".
 space_context_pct() {
   "$HERDR_BIN" pane list --workspace "$1" 2>/dev/null \
-    | python3 "$SELF_DIR/context.py" "$DISKSPACE_CONTEXT_WINDOW" 2>/dev/null
+    | python3 "$SELF_DIR/context.py" "$FOOTPRINT_CONTEXT_WINDOW" 2>/dev/null
 }
 
 now=$(date +%s)
@@ -57,29 +57,29 @@ for id in $spaces; do
       bytes=$(cat "$cache" 2>/dev/null)
       age=$(( now - $(stat -c %Y "$cache" 2>/dev/null || echo "$now") ))
     else
-      bytes="" ; age=$(( DISKSPACE_REMEASURE_SEC + 1 ))
+      bytes="" ; age=$(( FOOTPRINT_REMEASURE_SEC + 1 ))
     fi
     # Claim the single re-measure slot for the stalest space past its TTL.
-    if [ "$age" -gt "$DISKSPACE_REMEASURE_SEC" ] && [ "$age" -gt "$stalest_age" ]; then
+    if [ "$age" -gt "$FOOTPRINT_REMEASURE_SEC" ] && [ "$age" -gt "$stalest_age" ]; then
       stalest_age=$age stalest_id=$id stalest_dir=$root
     fi
     if [ -n "$bytes" ]; then
-      tokens+=(--token "disk=${DISKSPACE_DISK_ICON} $(human_bytes "$bytes")")
+      tokens+=(--token "disk=${FOOTPRINT_DISK_ICON} $(human_bytes "$bytes")")
     else
-      tokens+=(--token "disk=${DISKSPACE_DISK_ICON} $PLACEHOLDER")
+      tokens+=(--token "disk=${FOOTPRINT_DISK_ICON} $PLACEHOLDER")
     fi
   else
-    tokens+=(--token "disk=${DISKSPACE_DISK_ICON} $PLACEHOLDER")
+    tokens+=(--token "disk=${FOOTPRINT_DISK_ICON} $PLACEHOLDER")
   fi
 
   pct=$(space_context_pct "$id")
-  tokens+=(--token "ctx=${DISKSPACE_CTX_ICON} ${pct:-$PLACEHOLDER}${pct:+%}")
+  tokens+=(--token "ctx=${FOOTPRINT_CTX_ICON} ${pct:-$PLACEHOLDER}${pct:+%}")
 
   # TTL of three cycles: a stopped poller fades its tokens instead of leaving
   # a stale number on screen forever. Capped at herdr's 24h metadata maximum.
-  ttl=$(( DISKSPACE_CADENCE_SEC * 3000 ))
+  ttl=$(( FOOTPRINT_CADENCE_SEC * 3000 ))
   [ "$ttl" -gt 86400000 ] && ttl=86400000
-  "$HERDR_BIN" workspace report-metadata "$id" --source diskspace \
+  "$HERDR_BIN" workspace report-metadata "$id" --source footprint \
     "${tokens[@]}" --ttl-ms "$ttl" >/dev/null 2>&1 \
     || log "push failed for $id"
 done

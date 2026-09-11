@@ -1,5 +1,5 @@
-id = "diskspace"
-name = "Disk Space"
+id = "footprint"
+name = "Footprint"
 version = "0.1.0"
 min_herdr_version = "0.7.5"
 description = "Per-space disk footprint and context usage in the Herdr sidebar."
@@ -10,19 +10,19 @@ command = ["bash", "bin/poll.sh", "--spawn"]
 
 [[actions]]
 id = "refresh"
-title = "Disk Space: refresh now"
+title = "Footprint: refresh now"
 description = "Run one measurement cycle immediately."
 contexts = ["global", "workspace"]
 command = ["bash", "bin/poll.sh", "--once"]
 
 [[actions]]
 id = "start"
-title = "Disk Space: start poller"
+title = "Footprint: start poller"
 contexts = ["global"]
 command = ["bash", "bin/poll.sh", "--spawn"]
 
 [[actions]]
 id = "stop"
-title = "Disk Space: stop poller"
+title = "Footprint: stop poller"
 contexts = ["global"]
 command = ["bash", "bin/poll.sh", "--stop"]
