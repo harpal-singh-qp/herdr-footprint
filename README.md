@@ -186,6 +186,12 @@ State lives in `$HERDR_PLUGIN_STATE_DIR` — a size cache, a pidfile, and a log.
 
 herdr ≥ 0.7.5 · bash · python3 · git · Linux or macOS
 
+**Recommended companion:** a usage plugin such as
+[herdr-agent-usage](https://github.com/senna-lang/herdr-agent-usage). `$disk` works on
+its own, but `$ctx` reads the `context` token such a plugin publishes — that is what
+extends it to Codex, OpenCode, Grok, Pi, omp, Cursor and API backends. Without one,
+`$ctx` falls back to Claude transcripts and any non-Claude pane shows `--`.
+
 ## Contributing
 
 Issues and PRs welcome. The plugin is four small scripts; `bin/collect.sh` is where
