@@ -26,7 +26,7 @@ has already burned — whichever agent that is.
 </div>
 
 <div align="center">
-<img src="assets/sidebar.png" alt="The herdr spaces sidebar: each space shows its branch and git status, then a context percentage and a disk figure; the agents panel below carries the same context meter per agent" width="356">
+<img src="assets/sidebar.png" alt="The herdr spaces sidebar: each space shows its branch and git status, then the context percentage and disk figure this plugin reports" width="356">
 </div>
 
 ## Why you'd want it
@@ -39,10 +39,17 @@ Every other sidebar plugin reports **per machine** (CPU, RAM, free disk) or **pe
 agent** (tokens, rate limits). Those are the wrong units for a decision you make per
 space: *is this one finished with me?*
 
+- **`◐ 7%`** next to a space — room to keep going there.
 - **`◐ 94%`** — that space is one long turn from a compaction you did not plan.
-- **`⛁ 13.2G`** — that space is why your disk alert fired.
+- **`⛁ 1.9G`** against a branch you merged last week — that is your disk alert, waiting.
 
-Both answers, without focusing the tab.
+Both answers, without focusing a single tab.
+
+Above: four spaces, each showing its branch and git status, then what it costs.
+`web-dashboard` is carrying 1.9 GB and 23 untracked files; `scratch` is 12 MB and
+clean. Only `api-gateway` has an agent in it, so it is the only one reporting
+context — a space with no agent shows `--`, which is the honest answer rather than
+a zero.
 
 ## Install
 
@@ -86,8 +93,8 @@ as it fills and red before it bites:
 
 | Token | Example | Meaning |
 | --- | --- | --- |
-| `$disk` | `⛁ 2.1G` | Size of the space's git worktree root (`du -sx`) |
-| `$ctx` | `◐ 84%` | Largest context-window share among the space's agent panes |
+| `$disk` | `⛁ 840M` | Size of the space's git worktree root (`du -sx`) |
+| `$ctx` | `◐ 7%` | Largest context-window share among the space's agent panes |
 
 Both fall back to `--` instead of vanishing, so a configured row never collapses.
 
