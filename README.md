@@ -25,17 +25,17 @@ has already burned.
 </div>
 
 ```
-  ● fluorite-monitoring
-    hp-sep08-community-agent-v7  ↑21
-    ◐ --      ⛁ 2.1G
+  ● api-gateway
+    feat/rate-limiting  ↑12
+    ◐ 41%     ⛁ 1.4G
 
-  ● portal-content-design
-    hp-sep08-community-agent-v7  ↑21  ?97
-    ◐ 84%     ⛁ 2.1G
+  ● web-dashboard
+    main  ?23
+    ◐ 87%     ⛁ 4.8G
 
-  ● fm-captain
+  ● docs-site
     main  ✓
-    ◐ 94%     ⛁ 46.2M
+    ◐ --      ⛁ 62M
 ```
 
 ## Why you'd want it
@@ -81,7 +81,7 @@ immediately with `herdr plugin action invoke start --plugin diskspace`.
 
 ### Colour by value (herdr 0.9.0+)
 
-On 0.9.0 and later, tokens can restyle themselves by value — so a space turns amber
+On 0.9.0 and later, tokens can restyle themselves by value — so a space turns yellow
 as it fills and red before it bites:
 
 ```toml
