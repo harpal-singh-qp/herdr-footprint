@@ -229,6 +229,20 @@ cursor and moves down, so ticking a run of rows is one key repeated:
 A **BLOCKED** row shows `–` rather than an empty box. An unticked checkbox invites a
 click, and that row is the one thing here that cannot be ticked.
 
+The list is drawn through a viewport that follows the cursor, so it stays usable
+however long it gets:
+
+| Key | Does |
+| --- | --- |
+| `↑` `↓` / `k` `j` | move |
+| `g` / `G`, `Home` / `End` | jump to top / bottom |
+| `PgUp` / `PgDn` | move a screenful |
+| `space` (or `Enter`, `x`) | tick the row and step down |
+| `a` / `n` | tick everything SAFE / untick all |
+| **`f`** | **hide BLOCKED rows** — on a long list this is what makes ticking bearable |
+| `d` | reclaim what is ticked |
+| `r` / `q` | rescan / quit |
+
 Tick rows (or `a` for everything classed SAFE), then `d`. A
 confirmation lists exactly what is about to go and requires you to **type the word
 `delete`** — a stray keypress in a terminal you forgot was focused should not be able

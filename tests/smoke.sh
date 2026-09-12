@@ -150,6 +150,10 @@ rm -rf "$empty"
 
 # Deletion is proved in its own file, because it needs real temp trees rather
 # than the pure-function checks above.
+printf '\npane navigation (see tests/pane_test.py)\n'
+if python3 "$ROOT/tests/pane_test.py"; then ok "viewport follows the cursor and escape sequences decode"
+else bad "pane_test.py reported failures"; fi
+
 printf '\nreclaim actions (see tests/actions_test.py)\n'
 if python3 "$ROOT/tests/actions_test.py"; then ok "actions act, and their fences refuse"
 else bad "actions_test.py reported failures"; fi
