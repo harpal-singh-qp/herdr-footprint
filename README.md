@@ -151,7 +151,7 @@ already knows the window.
 Sidebar tokens tell you *that* a space is expensive. The reclaim pane tells you
 *what you can do about it*:
 
-<img src="assets/reclaim.png" alt="The reclaim pane: SAFE, REVIEW and BLOCKED totals, a count of what is ticked, then every item with a checkbox, its size and the reason it falls in that class" width="1000">
+<img src="assets/demo.gif" alt="The reclaim pane in use: hiding blocked rows, ticking three items, confirming by typing delete, and the totals dropping after the rescan" width="900">
 
 Open it with `footprint.reclaim`, or bind a key:
 
