@@ -27,10 +27,12 @@ has already burned — whichever agent that is.
 </div>
 
 <div align="center">
-<img src="assets/sidebar.png" alt="The herdr spaces sidebar: each space shows its branch and git status, then the context percentage and disk figure this plugin reports" width="356">
+<img src="assets/demo.gif" alt="The reclaim pane in use: hiding blocked rows, ticking three items, confirming by typing delete, and the totals dropping after the rescan" width="900">
 </div>
 
 ## Why you'd want it
+
+<img src="assets/sidebar.png" alt="The herdr spaces sidebar: each space shows its branch and git status, then the context percentage and disk figure this plugin reports" width="330" align="right">
 
 You can see which agent is blocked. You cannot see which space is about to run out
 of context, or which one is quietly holding 13 GB of `node_modules` you stopped
@@ -46,11 +48,16 @@ space: *is this one finished with me?*
 
 Both answers, without focusing a single tab.
 
-Above: four spaces, each showing its branch and git status, then what it costs.
+Right: four spaces, each showing its branch and git status, then what it costs.
 `web-dashboard` is carrying 1.9 GB and 23 untracked files; `scratch` is 12 MB and
 clean. Only `api-gateway` has an agent in it, so it is the only one reporting
 context — a space with no agent shows `--`, which is the honest answer rather than
 a zero.
+
+<br clear="right">
+
+The animation at the top is the other half: the reclaim pane, where those numbers
+turn into something you can act on.
 
 ## Install
 
@@ -149,9 +156,7 @@ already knows the window.
 ## The reclaim pane
 
 Sidebar tokens tell you *that* a space is expensive. The reclaim pane tells you
-*what you can do about it*:
-
-<img src="assets/demo.gif" alt="The reclaim pane in use: hiding blocked rows, ticking three items, confirming by typing delete, and the totals dropping after the rescan" width="900">
+*what you can do about it* — it is the pane in the animation at the top of this page.
 
 Open it with `footprint.reclaim`, or bind a key:
 
