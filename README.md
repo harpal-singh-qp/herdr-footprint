@@ -216,7 +216,20 @@ inflating it roughly fourfold.
 
 ### Reclaiming
 
-Choose rows with `space` (or `a` for everything classed SAFE), then `d`. A
+Every row that can be acted on carries a checkbox. `space` ticks the one under the
+cursor and moves down, so ticking a run of rows is one key repeated:
+
+```
+❯[✓]   4.9G  44 idle layers            docker build cache · rebuildable by definition
+ [✓]   1.6G  dangling sha256:3d8dd     docker image · untagged layer
+ [ ]   513M  dangling sha256:a6b30     docker image · untagged layer
+  –   25.2G  db-data                   docker volume · in use by 1 container(s)
+```
+
+A **BLOCKED** row shows `–` rather than an empty box. An unticked checkbox invites a
+click, and that row is the one thing here that cannot be ticked.
+
+Tick rows (or `a` for everything classed SAFE), then `d`. A
 confirmation lists exactly what is about to go and requires you to **type the word
 `delete`** — a stray keypress in a terminal you forgot was focused should not be able
 to remove a worktree.

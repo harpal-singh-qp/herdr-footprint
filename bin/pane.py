@@ -86,20 +86,21 @@ def draw(rows, totals, cursor, selected, status):
         head += f"   {C['bold']}{len(selected)} chosen · {reclaim.human(chosen)}{C['off']}"
     print(head + "\n")
 
-    name_w = max(16, min(42, width - 40))
-    detail_w = max(10, width - name_w - 18)
+    name_w = max(16, min(42, width - 42))
+    detail_w = max(10, width - name_w - 20)
 
     for i, (cls, kind, name, size, reason, target) in enumerate(rows):
-        here = i == cursor
+        # A blocked row gets no box at all rather than an unticked one: an empty
+        # checkbox invites a click, and this is the one thing that cannot be ticked.
         if target is None:
-            box = f"{C['dim']}·{C['off']}"
+            box = f"{C['dim']} –  {C['off']}"
         elif i in selected:
-            box = f"{C[cls]}{C['bold']}x{C['off']}"
+            box = f"{C[cls]}{C['bold']}[✓]{C['off']} "
         else:
-            box = " "
-        arrow = f"{C['bold']}>{C['off']}" if here else " "
+            box = f"{C['dim']}[ ]{C['off']} "
+        arrow = f"{C['bold']}❯{C['off']}" if i == cursor else " "
         detail = f"{kind} · {reason}"
-        print(f"{arrow}{box} {C[cls]}{reclaim.human(size):>7}{C['off']}  "
+        print(f"{arrow}{box}{C[cls]}{reclaim.human(size):>7}{C['off']}  "
               f"{reclaim.ellipsis(name, name_w):<{name_w}} "
               f"{C['dim']}{reclaim.ellipsis(detail, detail_w)}{C['off']}")
 
@@ -107,8 +108,9 @@ def draw(rows, totals, cursor, selected, status):
         print(f"\n {C[REVIEW]}!{C['off']} {C['dim']}{note}{C['off']}")
 
     print(f"\n{C['dim']} {status}{C['off']}" if status else "")
-    print(f"{C['dim']} j/k move · space choose · a all safe · n none · "
-          f"d delete chosen · r rescan · q quit{C['off']}", end="")
+    tick = f"{C['bold']}[✓]{C['off']}{C['dim']}"
+    print(f"{C['dim']} ↑↓ move · space ticks {tick} · a all safe · n none · "
+          f"d reclaim ticked · r rescan · q quit{C['off']}", end="")
     sys.stdout.flush()
 
 
@@ -172,11 +174,13 @@ def main():
             cursor = min(cursor + 1, len(rows) - 1)
         elif key == "k":
             cursor = max(cursor - 1, 0)
-        elif key == " ":
+        elif key in (" ", "x", "\r", "\n"):
             if rows and rows[cursor][5] is None:
-                status = "that one is blocked — the row says why"
+                status = "that one is blocked — no box to tick; the row says why"
             elif rows:
                 selected.symmetric_difference_update({cursor})
+                # Ticking then moving on is the common case; save the extra keypress.
+                cursor = min(cursor + 1, len(rows) - 1)
         elif key == "a":
             selected |= {i for i, r in enumerate(rows) if r[0] == SAFE and r[5]}
             status = "chose everything classed SAFE"
