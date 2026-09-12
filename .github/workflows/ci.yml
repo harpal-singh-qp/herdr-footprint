@@ -23,6 +23,12 @@ jobs:
       - name: Python syntax
         run: python3 -m compileall -q bin
 
+      - name: Configure git for the worktree fence tests
+        run: |
+          git config --global user.email ci@example.com
+          git config --global user.name CI
+          git config --global init.defaultBranch main
+
       - name: Smoke tests
         run: bash tests/smoke.sh
 

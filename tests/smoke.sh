@@ -148,5 +148,11 @@ case "$out" in *"reclaimable space"*) ok "survives with no docker, git or du on 
                                    *) bad "crashed without its tools: $out" ;; esac
 rm -rf "$empty"
 
+# Deletion is proved in its own file, because it needs real temp trees rather
+# than the pure-function checks above.
+printf '\nreclaim actions (see tests/actions_test.py)\n'
+if python3 "$ROOT/tests/actions_test.py"; then ok "actions act, and their fences refuse"
+else bad "actions_test.py reported failures"; fi
+
 printf '\n  %d passed, %d failed\n\n' "$pass" "$fail"
 [ "$fail" -eq 0 ]

@@ -92,20 +92,23 @@ def docker_rows():
             continue  # an image backing a live container is not reclaimable space
         if img.get("Repository") == "<none>":
             rows.append((SAFE, "docker image", f"dangling {img.get('ID','')[:12]}",
-                         size, "untagged layer, nothing references it"))
+                         size, "untagged layer, nothing references it",
+                         {"op": "docker_image", "id": img.get("ID", "")}))
         else:
             rows.append((REVIEW, "docker image", name, size,
-                         "no container uses it; may be a base you rebuild from"))
+                         "no container uses it; may be a base you rebuild from",
+                         {"op": "docker_image", "id": img.get("ID", "")}))
 
     for vol in d.get("Volumes", []):
         size = parse_size(vol.get("Size"))
         links = int(vol.get("Links") or 0)
         if links > 0:
             rows.append((BLOCKED, "docker volume", vol.get("Name", ""), size,
-                         f"in use by {links} container(s)"))
+                         f"in use by {links} container(s)", None))
         else:
             rows.append((REVIEW, "docker volume", vol.get("Name", ""), size,
-                         "unused, but a volume is where data lives"))
+                         "unused, but a volume is where data lives",
+                         {"op": "docker_volume", "name": vol.get("Name", "")}))
 
     # Docker renders booleans as the strings "true"/"false", so test the text.
     # Shared layers are counted against several images; summing them inflates the
@@ -115,8 +118,11 @@ def docker_rows():
                    and str(c.get("Shared", "false")).lower() != "true"]
     cache = sum(parse_size(c.get("Size")) for c in idle_layers)
     if cache:
+        # The only bulk operation here, because docker exposes no per-layer
+        # delete. The row is already the unit, and the label says so.
         rows.append((SAFE, "docker build cache", f"{len(idle_layers)} idle layers",
-                     cache, "rebuildable by definition"))
+                     cache, "rebuildable by definition; pruned as one unit",
+                     {"op": "build_cache"}))
     return rows
 
 
@@ -127,7 +133,7 @@ def fold_noise(rows):
     """Collapse sub-megabyte items of one kind into a single counted row."""
     keep, small = [], {}
     for row in rows:
-        cls, kind, _, size, _ = row
+        cls, kind, _, size, _, _ = row
         if size < NOISE_FLOOR:
             bucket = small.setdefault((cls, kind), [0, 0])
             bucket[0] += 1
@@ -135,7 +141,8 @@ def fold_noise(rows):
         else:
             keep.append(row)
     for (cls, kind), (count, total) in small.items():
-        keep.append((cls, kind, f"{count} items under 1M", total, "too small to matter individually"))
+        # Folded rows lose their individual targets, so they are not deletable.
+        keep.append((cls, kind, f"{count} items under 1M", total, "too small to matter individually", None))
     return keep
 
 
@@ -226,24 +233,28 @@ def classify_worktree(repo, path, branch, merged, cwd):
         reason = f"{art_count} dirs ({', '.join(art_kinds)}) — rebuildable"
         if cls is REVIEW:
             reason += "; the worktree is in use"
-        return [row, (cls, "build artifacts", label, art_bytes, reason)]
+        return [row, (cls, "build artifacts", label, art_bytes, reason,
+                      {"op": "artifacts", "path": path})]
 
     if os.path.realpath(path) == os.path.realpath(repo):
-        return with_artifacts((BLOCKED, "git worktree", label, size, "the main checkout"))
+        return with_artifacts((BLOCKED, "git worktree", label, size, "the main checkout", None))
     if cwd and os.path.realpath(cwd).startswith(os.path.realpath(path)):
-        return with_artifacts((BLOCKED, "git worktree", label, size, "you are standing in it"))
+        return with_artifacts((BLOCKED, "git worktree", label, size, "you are standing in it", None))
     if run(["git", "-C", path, "status", "--porcelain"]).strip():
-        return with_artifacts((BLOCKED, "git worktree", label, size, "uncommitted changes"))
+        return with_artifacts((BLOCKED, "git worktree", label, size, "uncommitted changes", None))
     if not branch:
-        return with_artifacts((REVIEW, "git worktree", label, size, "detached HEAD, no branch to check"))
+        return with_artifacts((REVIEW, "git worktree", label, size, "detached HEAD, no branch to check",
+                               {"op": "worktree", "repo": repo, "path": path, "branch": branch}))
     if branch not in merged:
-        return with_artifacts((BLOCKED, "git worktree", label, size, "branch not merged into the base"))
+        return with_artifacts((BLOCKED, "git worktree", label, size, "branch not merged into the base", None))
 
     idle = idle_days(path)
     if idle is not None and idle >= IDLE_DAYS:
-        return with_artifacts((SAFE, "git worktree", label, size, f"merged and idle {idle}d"))
+        return with_artifacts((SAFE, "git worktree", label, size, f"merged and idle {idle}d",
+                               {"op": "worktree", "repo": repo, "path": path, "branch": branch}))
     return with_artifacts((REVIEW, "git worktree", label, size,
-                           f"merged, but active {idle}d ago" if idle is not None else "merged"))
+                           f"merged, but active {idle}d ago" if idle is not None else "merged",
+                           {"op": "worktree", "repo": repo, "path": path, "branch": branch}))
 
 
 def idle_days(path):
@@ -298,10 +309,11 @@ def transcript_rows():
         stale, fresh, count = split_by_age(full, STALE_DAYS)
         if stale:
             rows.append((REVIEW, "agent transcripts", f"{label} · older than {STALE_DAYS}d",
-                         stale, f"{count} files you are unlikely to reopen"))
+                         stale, f"{count} files you are unlikely to reopen",
+                         {"op": "transcripts", "root": full, "days": STALE_DAYS}))
         if fresh:
             rows.append((BLOCKED, "agent transcripts", f"{label} · last {STALE_DAYS}d", fresh,
-                         "recent sessions, still resumable"))
+                         "recent sessions, still resumable", None))
     return rows
 
 
@@ -315,7 +327,7 @@ FORGET_DAYS = 30
 
 
 def item_key(row):
-    _, kind, name, _, _ = row
+    _, kind, name, _, _, _ = row
     return f"{kind}\u0000{name}"
 
 
@@ -389,7 +401,7 @@ def render(rows, elapsed):
     order = {SAFE: 0, REVIEW: 1, BLOCKED: 2}
     rows.sort(key=lambda r: (order[r[0]], -r[3]))
     totals = {SAFE: 0, REVIEW: 0, BLOCKED: 0}
-    for cls, _, _, size, _ in rows:
+    for cls, _, _, size, _, _ in rows:
         totals[cls] += size
 
     width = max(40, shutil.get_terminal_size((80, 24)).columns)
@@ -418,8 +430,8 @@ def render(rows, elapsed):
     now = time.time()
 
     current = None
-    for cls, kind, name, size, reason in rows:
-        age = now - seen.get(item_key((cls, kind, name, size, reason)), now)
+    for cls, kind, name, size, reason, target in rows:
+        age = now - seen.get(item_key((cls, kind, name, size, reason, target)), now)
         if age >= 3 * 86400:
             reason = f"{reason} · here {ago(age)}"
         if cls != current:
@@ -439,7 +451,7 @@ def render(rows, elapsed):
     if width >= 80:
         print(f"\n{C['dim']}  SAFE is rebuildable or merged-and-idle. REVIEW holds data worth")
         print("  a glance. BLOCKED shows why the space is not yours yet.")
-        print(f"  v0.4 reclaims; this one only looks.{C['off']}")
+        print(f"  space chooses · d acts · fences re-checked at that moment.{C['off']}")
     else:
         print(f"\n{C['dim']}  SAFE: rebuildable. REVIEW: holds data.")
         print(f"  BLOCKED: why it is not yours yet.{C['off']}")
@@ -450,7 +462,7 @@ def main():
     cwd = os.environ.get("HERDR_PANE_CWD") or os.getcwd()
     rows = fold_noise(docker_rows() + worktree_rows(cwd) + transcript_rows())
     totals = {SAFE: 0, REVIEW: 0, BLOCKED: 0}
-    for cls, _, _, size, _ in rows:
+    for cls, _, _, size, _, _ in rows:
         totals[cls] += size
     record(rows, totals)
     render(rows, time.time() - start)

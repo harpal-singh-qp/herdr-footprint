@@ -214,7 +214,28 @@ Figures are reconciled against the tools themselves — build cache excludes sha
 layers, so the total matches `docker system df`'s own RECLAIMABLE column rather than
 inflating it roughly fourfold.
 
-**It deletes nothing.** It runs `docker system df`, `git`, `find` and `du`, and prints.
+### Reclaiming
+
+Choose rows with `space` (or `a` for everything classed SAFE), then `d`. A
+confirmation lists exactly what is about to go and requires you to **type the word
+`delete`** — a stray keypress in a terminal you forgot was focused should not be able
+to remove a worktree.
+
+Then, for every chosen item:
+
+- **The fence is re-checked at that moment, not when the list was drawn.** A volume
+  that has since been attached, a worktree that has since gained uncommitted work, a
+  branch that has since stopped being merged — each is skipped, and told to you.
+- **A worktree's branch is bundled before its checkout is removed**, delta-only
+  against the base, into `~/.local/state/herdr/plugins/footprint/bundles`. The
+  checkout goes; the commits do not.
+- **Nothing is pruned in bulk.** Every action names its target. The one exception is
+  docker's build cache, which exposes no per-layer delete — which is why that row is
+  presented as a single unit in the first place.
+- **BLOCKED rows carry no target at all**, so they cannot be chosen, and the code
+  that acts cannot be reached from them.
+
+`sudo` is never used. An operation that would need it is out of scope.
 
 If a tool is missing, the report says so rather than showing an empty section — a
 silent `SAFE 0B` would read as "nothing to reclaim" when the truth is "not checked".
@@ -250,8 +271,7 @@ State lives in `$HERDR_PLUGIN_STATE_DIR` — a size cache, a pidfile, and a log.
 
 ## Roadmap
 
-- **v0.4** — reclaim, itemised, behind a confirmation, with a git bundle taken before
-  any worktree or branch is removed. Never a blanket prune.
+- **v0.5** — a scheduled report, so the numbers reach you without opening anything.
 
 ## Requirements
 
