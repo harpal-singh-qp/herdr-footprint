@@ -225,10 +225,24 @@ its own, but `$ctx` reads the `context` token such a plugin publishes — that i
 extends it to Codex, OpenCode, Grok, Pi, omp, Cursor and API backends. Without one,
 `$ctx` falls back to Claude transcripts and any non-Claude pane shows `--`.
 
+## Tests
+
+```bash
+bash tests/smoke.sh
+```
+
+Covers the failures that produce a **wrong answer** rather than an error — a missing
+tool read as "0 bytes", a stale cache read as "just measured", a size parser that
+drops a unit. Those are the ones nobody reports, because nothing looks broken.
+
+Included: every docker unit form through `parse_size`, `mtime` returning `0` rather
+than empty for a missing file, `dir_bytes` failing rather than reporting zero, and a
+full scan with `docker`, `git` and `du` all absent from `PATH`.
+
 ## Contributing
 
-Issues and PRs welcome. The plugin is four small scripts; `bin/collect.sh` is where
-almost everything happens.
+Issues and PRs welcome. The plugin is five small scripts; `bin/collect.sh` pushes the
+tokens and `bin/reclaim.py` does the classifying.
 
 ## License
 

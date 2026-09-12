@@ -204,9 +204,10 @@ def idle_days(path):
 
 
 def dir_size(path):
-    out = run(["du", "-sx", "--block-size=1", path], timeout=120)
+    """`du -sk` is POSIX; GNU's --block-size is not, and this claims macOS."""
+    out = run(["du", "-sk", path], timeout=120)
     try:
-        return int(out.split()[0])
+        return int(out.split()[0]) * 1024
     except (IndexError, ValueError):
         return 0
 

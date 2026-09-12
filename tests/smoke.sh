@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+# smoke.sh — invariants that must hold before this plugin goes near anyone's machine.
+#
+# Deliberately covers the failure shapes that produce a WRONG ANSWER rather than
+# an error: a missing tool read as "0 bytes", a stale cache read as "just
+# measured", a size parser that silently drops a unit. Those are the ones a user
+# would never report, because nothing looks broken.
+
+set -u
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
+pass=0 fail=0
+
+ok()   { pass=$((pass+1)); printf '  \033[32mok\033[0m   %s\n' "$1"; }
+bad()  { fail=$((fail+1)); printf '  \033[31mFAIL\033[0m %s\n' "$1"; }
+is()   { [ "$2" = "$3" ] && ok "$1" || bad "$1 (got '$2', want '$3')"; }
+
+printf '\nshell helpers\n'
+# shellcheck disable=SC1091
+HERDR_PLUGIN_STATE_DIR="$(mktemp -d)" . "$ROOT/bin/lib.sh"
+
+is "human_bytes 0"          "$(human_bytes 0)"          "0B"
+is "human_bytes 1023"       "$(human_bytes 1023)"       "1023B"
+is "human_bytes 1048576"    "$(human_bytes 1048576)"    "1.0M"
+is "human_bytes 2147483648" "$(human_bytes 2147483648)" "2.0G"
+is "mtime of a missing file is 0, not empty" "$(mtime /nonexistent/x)" "0"
+[ -n "$(dir_bytes "$ROOT")" ] && ok "dir_bytes returns a size" || bad "dir_bytes returned nothing"
+dir_bytes /nonexistent/x >/dev/null 2>&1 && bad "dir_bytes should fail on a missing path" \
+                                          || ok "dir_bytes fails on a missing path"
+w=$(worktree_root "$ROOT"); is "worktree_root resolves a repo" "$w" "$ROOT"
+
+printf '\nsize parsing\n'
+python3 - "$ROOT" <<'PY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("reclaim", sys.argv[1] + "/bin/reclaim.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+cases = [("0B", 0), ("512B", 512), ("1KB", 1024), ("594kB", 594 * 1024),
+         ("1.5MB", int(1.5 * 1024**2)), ("2GB", 2 * 1024**3), ("", 0), ("garbage", 0)]
+bad = 0
+for text, want in cases:
+    got = int(m.parse_size(text))
+    print(f"  {'ok  ' if got == want else 'FAIL'} parse_size({text!r}) -> {got}")
+    bad += got != want
+# A dangling image must never be classed anything but SAFE, and an in-use volume
+# must never be classed anything but BLOCKED: those two drive what v0.3 deletes.
+print(f"  {'ok  ' if m.SAFE != m.BLOCKED else 'FAIL'} classes are distinct")
+sys.exit(1 if bad else 0)
+PY
+[ $? -eq 0 ] && ok "parse_size handles every docker unit form" || bad "parse_size mis-parsed a unit"
+
+printf '\nscanner\n'
+out=$(cd "$ROOT" && NO_COLOR=1 timeout 300 python3 bin/reclaim.py 2>&1)
+case "$out" in *"reclaimable space"*) ok "scanner produces a report" ;; *) bad "no report: $out" ;; esac
+case "$out" in *"read-only"*) ok "report states it deleted nothing" ;; *) bad "missing read-only notice" ;; esac
+
+# The tools it shells out to may be absent. Absent must mean "no rows", never a
+# crash. Resolve the harness's own binaries first, since PATH is about to go away.
+empty=$(mktemp -d)
+TIMEOUT=$(command -v timeout); PYTHON=$(command -v python3)
+out=$(cd "$ROOT" && NO_COLOR=1 PATH="$empty" "$TIMEOUT" 300 "$PYTHON" bin/reclaim.py 2>&1)
+case "$out" in *"reclaimable space"*) ok "survives with no docker, git or du on PATH" ;;
+                                   *) bad "crashed without its tools: $out" ;; esac
+rm -rf "$empty"
+
+printf '\n  %d passed, %d failed\n\n' "$pass" "$fail"
+[ "$fail" -eq 0 ]

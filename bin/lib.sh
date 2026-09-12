@@ -44,3 +44,23 @@ worktree_root() {
 }
 
 cache_key() { printf '%s' "$1" | cksum | tr -d ' \t' ; }
+
+# BSD and GNU disagree on both of these, and the manifest claims macOS. Resolve
+# them once here: a silent failure would read as "0 bytes" and "just measured",
+# neither of which is an error the caller would ever notice.
+# Always prints an integer: an empty value would make the caller's $(( )) a
+# syntax error, and 0 fails toward re-measuring rather than toward never doing so.
+if stat -c %Y . >/dev/null 2>&1; then _stat_mtime() { stat -c %Y "$1" 2>/dev/null; }
+else                                 _stat_mtime() { stat -f %m "$1" 2>/dev/null; }; fi
+mtime() {
+  local t; t=$(_stat_mtime "$1")
+  case "$t" in ''|*[!0-9]*) printf '0' ;; *) printf '%s' "$t" ;; esac
+}
+
+# `du -sk` is POSIX; GNU's --block-size is not.
+dir_bytes() {
+  local kb
+  kb=$(du -sk "$1" 2>/dev/null | cut -f1)
+  case "$kb" in ''|*[!0-9]*) return 1 ;; esac
+  printf '%s' "$(( kb * 1024 ))"
+}

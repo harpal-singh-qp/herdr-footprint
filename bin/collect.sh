@@ -55,7 +55,7 @@ for id in $spaces; do
     cache="$CACHE_DIR/$(cache_key "$root").size"
     if [ -r "$cache" ]; then
       bytes=$(cat "$cache" 2>/dev/null)
-      age=$(( now - $(stat -c %Y "$cache" 2>/dev/null || echo "$now") ))
+      age=$(( now - $(mtime "$cache") ))
     else
       bytes="" ; age=$(( FOOTPRINT_REMEASURE_SEC + 1 ))
     fi
@@ -86,7 +86,7 @@ done
 
 # The one expensive walk of this cycle, after every cheap token is already out.
 if [ -n "$stalest_dir" ]; then
-  bytes=$(du -sx --block-size=1 "$stalest_dir" 2>/dev/null | cut -f1)
+  bytes=$(dir_bytes "$stalest_dir")
   if [ -n "$bytes" ]; then
     printf '%s' "$bytes" >"$CACHE_DIR/$(cache_key "$stalest_dir").size" 2>/dev/null
     log "measured $stalest_id $stalest_dir -> $(human_bytes "$bytes")"
