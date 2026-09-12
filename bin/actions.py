@@ -89,8 +89,13 @@ def _worktree_still_safe(repo, path, branch, cwd):
             ok, _ = run(["git", "-C", repo, "rev-parse", "--verify", "-q", base])
             if not ok:
                 continue
-            ok, merged = run(["git", "-C", repo, "branch", "--merged", base])
-            names = {l.strip().lstrip("* ").strip() for l in merged.splitlines()}
+            # --format, because `git branch` prefixes the current branch with "*"
+            # and any branch checked out in ANOTHER worktree with "+". Stripping
+            # markers by hand missed the "+", which made every worktree branch
+            # look un-merged - exactly the branches this tool is asked about.
+            ok, merged = run(["git", "-C", repo, "branch", "--merged", base,
+                              "--format=%(refname:short)"])
+            names = {l.strip() for l in merged.splitlines() if l.strip()}
             if branch not in names:
                 return False, f"branch is no longer merged into {base}"
             break

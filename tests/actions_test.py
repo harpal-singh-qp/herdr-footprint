@@ -108,6 +108,16 @@ def test_worktree_fences(a):
     check("worktree: refuses the main checkout", not ok)
 
     # 4. Clean, not occupied: removed, and bundled first.
+    #
+    # This is the case that caught the "+" bug. Git marks a branch checked out in
+    # another worktree with "+" rather than "*", so a marker-stripping parse read
+    # every worktree branch as un-merged and refused to touch any of them. A
+    # worktree branch is the only kind this tool ever sees, so the bug applied to
+    # all of them.
+    merged = git("-C", repo, "branch", "--merged", "main", "--format=%(refname:short)")
+    listed = {l.strip() for l in merged.stdout.decode().splitlines() if l.strip()}
+    check("worktree: a checked-out branch parses without its marker", "feat" in listed)
+
     ok, msg = a.perform(target)
     check("worktree: removes a clean one", ok)
     check("worktree: gone from disk", not os.path.isdir(tree))

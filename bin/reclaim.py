@@ -194,8 +194,14 @@ def worktree_rows(cwd):
                 break
         merged = set()
         if base:
-            for line in run(["git", "-C", repo, "branch", "--merged", base]).splitlines():
-                merged.add(line.strip().lstrip("* ").strip())
+            # --format, because `git branch` prefixes the current branch with "*"
+            # and any branch checked out in ANOTHER worktree with "+" — which is
+            # every branch this plugin is asked about. Stripping markers by hand
+            # missed the "+" and classed merged worktrees as un-merged.
+            for line in run(["git", "-C", repo, "branch", "--merged", base,
+                             "--format=%(refname:short)"]).splitlines():
+                if line.strip():
+                    merged.add(line.strip())
 
         path = branch = None
         for line in porcelain.splitlines() + [""]:
