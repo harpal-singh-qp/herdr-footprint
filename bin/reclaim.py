@@ -67,9 +67,16 @@ def parse_size(text):
     return float(match.group(1)) * SCALE[match.group(2).upper()]
 
 
+NOTES = []
+
+
 def docker_rows():
+    if not shutil.which("docker"):
+        NOTES.append("docker is not installed — images, volumes and build cache not checked")
+        return []
     raw = run(["docker", "system", "df", "-v", "--format", "{{json .}}"], timeout=60)
     if not raw:
+        NOTES.append("docker is installed but not responding — its space was not checked")
         return []
     try:
         d = json.loads(raw)
@@ -133,6 +140,9 @@ def fold_noise(rows):
 
 
 def git_repos():
+    if not shutil.which("git"):
+        NOTES.append("git is not installed — worktrees were not checked")
+        return
     """Top-level directories under $HOME that are git repositories."""
     for entry in sorted(os.listdir(HOME)):
         path = os.path.join(HOME, entry)
@@ -423,11 +433,13 @@ def render(rows, elapsed):
             print(f"  {C[cls]}{human(size):>7}{C['off']}  {ellipsis(name, name_w):<{name_w}} "
                   f"{C['dim']}{ellipsis(detail, detail_w)}{C['off']}")
     if not rows:
-        print(f"  {C['dim']}nothing found — no docker, no extra worktrees, no transcripts{C['off']}")
+        print(f"  {C['dim']}nothing found{C['off']}")
+    for note in NOTES:
+        print(f"  {C[REVIEW]}!{C['off']} {C['dim']}{ellipsis(note, width - 5)}{C['off']}")
     if width >= 80:
         print(f"\n{C['dim']}  SAFE is rebuildable or merged-and-idle. REVIEW holds data worth")
         print("  a glance. BLOCKED shows why the space is not yours yet.")
-        print(f"  v0.3 reclaims; v0.2 only looks.{C['off']}")
+        print(f"  v0.4 reclaims; this one only looks.{C['off']}")
     else:
         print(f"\n{C['dim']}  SAFE: rebuildable. REVIEW: holds data.")
         print(f"  BLOCKED: why it is not yours yet.{C['off']}")

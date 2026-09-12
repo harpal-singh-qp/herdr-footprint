@@ -214,7 +214,10 @@ Figures are reconciled against the tools themselves — build cache excludes sha
 layers, so the total matches `docker system df`'s own RECLAIMABLE column rather than
 inflating it roughly fourfold.
 
-**v0.2 deletes nothing.** It runs `docker system df`, `git`, and `du`, and prints.
+**It deletes nothing.** It runs `docker system df`, `git`, `find` and `du`, and prints.
+
+If a tool is missing, the report says so rather than showing an empty section — a
+silent `SAFE 0B` would read as "nothing to reclaim" when the truth is "not checked".
 
 ## Actions
 
@@ -247,7 +250,7 @@ State lives in `$HERDR_PLUGIN_STATE_DIR` — a size cache, a pidfile, and a log.
 
 ## Roadmap
 
-- **v0.3** — reclaim, itemised, behind a confirmation, with a git bundle taken before
+- **v0.4** — reclaim, itemised, behind a confirmation, with a git bundle taken before
   any worktree or branch is removed. Never a blanket prune.
 
 ## Requirements

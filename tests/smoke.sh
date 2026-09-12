@@ -118,6 +118,22 @@ PY2
 )
 case "$hist" in *FAIL*) bad "history: $hist" ;; *) ok "history records, ages, compares and stays bounded" ;; esac
 
+printf '\nmissing tools are reported\n'
+note=$(python3 - "$ROOT" <<'PY2'
+import importlib.util, os, sys, tempfile
+spec = importlib.util.spec_from_file_location("reclaim", sys.argv[1] + "/bin/reclaim.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+os.environ["PATH"] = tempfile.mkdtemp()          # nothing on PATH at all
+m.NOTES.clear()
+m.docker_rows(); list(m.git_repos())
+joined = " ".join(m.NOTES)
+# Silence here would render as "SAFE 0B", i.e. "nothing to reclaim", when the
+# truth is that a whole source was never examined.
+print("ok" if "docker" in joined and "git" in joined else f"FAIL {m.NOTES}")
+PY2
+)
+case "$note" in *FAIL*) bad "missing-tool notes: $note" ;; *) ok "absent docker and git are reported, not silently skipped" ;; esac
+
 printf '\nscanner\n'
 out=$(cd "$ROOT" && NO_COLOR=1 bounded 300 python3 bin/reclaim.py 2>&1)
 case "$out" in *"reclaimable space"*) ok "scanner produces a report" ;; *) bad "no report: $out" ;; esac
