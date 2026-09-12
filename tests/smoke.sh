@@ -87,6 +87,30 @@ PY2
 )
 case "$age" in *FAIL*) bad "split_by_age: $age" ;; *) ok "split_by_age separates stale from fresh, including nested" ;; esac
 
+printf '\nscan history\n'
+hist=$(python3 - "$ROOT" <<'PY2'
+import importlib.util, json, os, sys, tempfile, time
+sd = tempfile.mkdtemp(); os.environ["HERDR_PLUGIN_STATE_DIR"] = sd
+spec = importlib.util.spec_from_file_location("reclaim", sys.argv[1] + "/bin/reclaim.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+rows = [(m.SAFE, "docker image", "a", 100, "r"), (m.BLOCKED, "git worktree", "b", 200, "r")]
+m.record(rows, {m.SAFE: 100, m.REVIEW: 0, m.BLOCKED: 200})
+print("ok" if len(open(m.HISTORY).readlines()) == 1 else "FAIL history not written")
+print("ok" if len(json.load(open(m.SEEN))) == 2 else "FAIL first-seen not recorded")
+# A run minutes later must not become the comparison point, or pressing r
+# repeatedly would collapse the window and always show no change.
+print("ok" if m.previous_totals() is None else "FAIL compared against a fresh record")
+open(m.HISTORY, "a").write(json.dumps({"t": int(time.time() - 3*86400),
+                                       "safe": 1, "review": 2, "blocked": 3}) + "\n")
+print("ok" if (m.previous_totals() or {}).get("safe") == 1 else "FAIL did not find the aged record")
+# A history that grows without bound is a bug in a long-lived plugin.
+for _ in range(m.HISTORY_MAX + 40):
+    m.record(rows, {m.SAFE: 1, m.REVIEW: 1, m.BLOCKED: 1})
+print("ok" if len(open(m.HISTORY).readlines()) <= m.HISTORY_MAX else "FAIL history unbounded")
+PY2
+)
+case "$hist" in *FAIL*) bad "history: $hist" ;; *) ok "history records, ages, compares and stays bounded" ;; esac
+
 printf '\nscanner\n'
 out=$(cd "$ROOT" && NO_COLOR=1 timeout 300 python3 bin/reclaim.py 2>&1)
 case "$out" in *"reclaimable space"*) ok "scanner produces a report" ;; *) bad "no report: $out" ;; esac

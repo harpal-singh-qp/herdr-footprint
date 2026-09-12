@@ -166,6 +166,29 @@ description = "footprint: what can I reclaim?"
 `r` rescans, `q` closes. The report adapts to the pane width, so it stays readable
 in a narrow split.
 
+### Movement, and rows that never leave
+
+Each scan records its totals, so the header shows what changed:
+
+```
+  SAFE     7.8G -3.2G   REVIEW    19.8G   BLOCKED    42.5G +1.1G   vs 3d ago
+```
+
+Individual items are timestamped the first time they appear, and a row that has
+been present for three days or more says so:
+
+```
+  4.9G  44 idle layers    docker build cache · rebuildable by definition · here 9d
+```
+
+That annotation is the useful one. A row sitting in **SAFE** for three weeks is one
+you keep declining to act on — which is a fact about the rule, not about you. It is
+the signal v0.3 needs before it is allowed to delete anything on its own.
+
+The comparison deliberately ignores any scan from the last 12 hours, so pressing `r`
+repeatedly does not collapse the window and report "no change". History is capped at
+500 entries and items are forgotten 30 days after they stop appearing.
+
 ### The three classes
 
 | Class | Means | Examples |

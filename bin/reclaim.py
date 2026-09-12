@@ -295,6 +295,86 @@ def transcript_rows():
     return rows
 
 
+STATE_DIR = (os.environ.get("HERDR_PLUGIN_STATE_DIR")
+             or os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".state"))
+HISTORY = os.path.join(STATE_DIR, "history.jsonl")
+SEEN = os.path.join(STATE_DIR, "seen.json")
+HISTORY_MAX = 500
+COMPARE_AFTER_HOURS = 12
+FORGET_DAYS = 30
+
+
+def item_key(row):
+    _, kind, name, _, _ = row
+    return f"{kind}\u0000{name}"
+
+
+def load_seen():
+    try:
+        with open(SEEN) as fh:
+            return json.load(fh)
+    except (OSError, ValueError):
+        return {}
+
+
+def record(rows, totals):
+    """Append this scan's totals and remember when each item first appeared.
+
+    The first-seen map is the point. A row that has been SAFE for three weeks and
+    is still here is one you keep declining to act on - which is a fact about the
+    rule, not about you, and the thing v0.3 most needs to know before it deletes.
+    """
+    now = int(time.time())
+    try:
+        os.makedirs(STATE_DIR, exist_ok=True)
+        with open(HISTORY, "a") as fh:
+            fh.write(json.dumps({"t": now, "safe": totals[SAFE],
+                                 "review": totals[REVIEW], "blocked": totals[BLOCKED]}) + "\n")
+        with open(HISTORY) as fh:
+            lines = fh.readlines()
+        if len(lines) > HISTORY_MAX:
+            with open(HISTORY, "w") as fh:
+                fh.writelines(lines[-HISTORY_MAX:])
+
+        seen = load_seen()
+        keys = {item_key(r) for r in rows}
+        for key in keys:
+            seen.setdefault(key, now)
+        cutoff = now - FORGET_DAYS * 86400
+        seen = {k: v for k, v in seen.items() if k in keys or v > cutoff}
+        with open(SEEN, "w") as fh:
+            json.dump(seen, fh)
+    except OSError:
+        pass  # history is a nicety; never let it break a scan
+
+
+def previous_totals():
+    """The most recent scan older than COMPARE_AFTER_HOURS, so pressing r repeatedly
+    does not collapse the comparison window to nothing."""
+    try:
+        with open(HISTORY) as fh:
+            entries = [json.loads(l) for l in fh if l.strip()]
+    except (OSError, ValueError):
+        return None
+    cutoff = time.time() - COMPARE_AFTER_HOURS * 3600
+    older = [e for e in entries if e.get("t", 0) < cutoff]
+    return older[-1] if older else None
+
+
+def delta_text(now_bytes, then_bytes):
+    diff = now_bytes - then_bytes
+    if abs(diff) < 50 * 1024**2:
+        return ""
+    return f" {'+' if diff > 0 else '-'}{human(abs(diff))}"
+
+
+def ago(seconds):
+    days = int(seconds / 86400)
+    if days >= 1:
+        return f"{days}d"
+    return f"{max(1, int(seconds / 3600))}h"
+
+
 def render(rows, elapsed):
     order = {SAFE: 0, REVIEW: 1, BLOCKED: 2}
     rows.sort(key=lambda r: (order[r[0]], -r[3]))
@@ -306,17 +386,32 @@ def render(rows, elapsed):
     tail = (f"   scanned in {elapsed:.1f}s · read-only, nothing was deleted"
             if width >= 80 else f"  {elapsed:.1f}s · read-only")
     print(f"{C['bold']}footprint · reclaimable space{C['off']}{C['dim']}{tail}{C['off']}\n")
-    print(f"  {C[SAFE]}SAFE {human(totals[SAFE]):>8}{C['off']}   "
-          f"{C[REVIEW]}REVIEW {human(totals[REVIEW]):>8}{C['off']}   "
-          f"{C[BLOCKED]}BLOCKED {human(totals[BLOCKED]):>8}{C['off']}\n")
+    prev = previous_totals()
+    if prev:
+        span = ago(time.time() - prev["t"])
+        d = (delta_text(totals[SAFE], prev.get("safe", 0)),
+             delta_text(totals[REVIEW], prev.get("review", 0)),
+             delta_text(totals[BLOCKED], prev.get("blocked", 0)))
+    else:
+        span, d = "", ("", "", "")
+    print(f"  {C[SAFE]}SAFE {human(totals[SAFE]):>8}{C['off']}{C['dim']}{d[0]}{C['off']}   "
+          f"{C[REVIEW]}REVIEW {human(totals[REVIEW]):>8}{C['off']}{C['dim']}{d[1]}{C['off']}   "
+          f"{C[BLOCKED]}BLOCKED {human(totals[BLOCKED]):>8}{C['off']}{C['dim']}{d[2]}{C['off']}"
+          + (f"{C['dim']}   vs {span} ago{C['off']}" if prev and any(d) else "") + "\n")
 
     # A plugin pane is often a narrow split. Fit the columns to it rather than
     # letting every row wrap into two unreadable ones.
     name_w = max(16, min(44, width - 34))
     detail_w = width - name_w - 13
 
+    seen = load_seen()
+    now = time.time()
+
     current = None
     for cls, kind, name, size, reason in rows:
+        age = now - seen.get(item_key((cls, kind, name, size, reason)), now)
+        if age >= 3 * 86400:
+            reason = f"{reason} · here {ago(age)}"
         if cls != current:
             current = cls
             print(f"{C[cls]}{C['bold']}  {cls}{C['off']}")
@@ -342,6 +437,10 @@ def main():
     start = time.time()
     cwd = os.environ.get("HERDR_PANE_CWD") or os.getcwd()
     rows = fold_noise(docker_rows() + worktree_rows(cwd) + transcript_rows())
+    totals = {SAFE: 0, REVIEW: 0, BLOCKED: 0}
+    for cls, _, _, size, _ in rows:
+        totals[cls] += size
+    record(rows, totals)
     render(rows, time.time() - start)
 
 
