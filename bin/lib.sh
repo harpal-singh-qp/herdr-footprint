@@ -5,6 +5,9 @@
 # must never kill the poll loop. Every helper returns a usable value or the
 # placeholder, so a sidebar row can never vanish mid-session.
 
+# This file is sourced, never executed: everything below is the surface its
+# callers use, so "appears unused" is expected here and only here.
+# shellcheck disable=SC2034
 HERDR_BIN="${HERDR_BIN_PATH:-herdr}"
 STATE_DIR="${HERDR_PLUGIN_STATE_DIR:-${HERDR_PLUGIN_ROOT:-$PWD}/.state}"
 CACHE_DIR="$STATE_DIR/cache"
@@ -14,6 +17,8 @@ PLACEHOLDER="--"
 
 # Config, overridable from the environment or the plugin config file.
 CONFIG_FILE="${HERDR_PLUGIN_CONFIG_DIR:-$STATE_DIR}/config.env"
+# User-supplied, so the path cannot be constant.
+# shellcheck source=/dev/null
 [ -r "$CONFIG_FILE" ] && . "$CONFIG_FILE"
 : "${FOOTPRINT_CADENCE_SEC:=60}"      # seconds between push cycles
 : "${FOOTPRINT_REMEASURE_SEC:=900}"   # re-`du` a worktree at most this often

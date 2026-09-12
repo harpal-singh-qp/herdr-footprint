@@ -252,17 +252,46 @@ def dir_size(path):
         return 0
 
 
+TRANSCRIPT_STORES = (("claude", "~/.claude/projects"), ("codex", "~/.codex/sessions"),
+                     ("opencode", "~/.local/share/opencode"), ("grok", "~/.grok"))
+STALE_DAYS = int(os.environ.get("FOOTPRINT_TRANSCRIPT_DAYS") or 90)
+
+
+def split_by_age(root, days):
+    """(stale bytes, fresh bytes, stale file count) under a directory tree.
+
+    A lumped "1.9G of history" is not a decision anyone can act on. Split at an
+    age and it becomes one: the old half is the part you will never reopen.
+    """
+    cutoff = time.time() - days * 86400
+    stale = fresh = count = 0
+    for dirpath, _, names in os.walk(root, onerror=lambda e: None):
+        for name in names:
+            try:
+                st = os.stat(os.path.join(dirpath, name))
+            except OSError:
+                continue
+            if st.st_mtime < cutoff:
+                stale += st.st_size
+                count += 1
+            else:
+                fresh += st.st_size
+    return stale, fresh, count
+
+
 def transcript_rows():
     rows = []
-    for label, path in (("claude", "~/.claude/projects"), ("codex", "~/.codex/sessions"),
-                        ("opencode", "~/.local/share/opencode"), ("grok", "~/.grok")):
+    for label, path in TRANSCRIPT_STORES:
         full = os.path.expanduser(path)
         if not os.path.isdir(full):
             continue
-        size = dir_size(full)
-        if size > 10 * 1024**2:
-            rows.append((REVIEW, "agent transcripts", f"{label} ({path})", size,
-                         "your own history; resumable sessions live here"))
+        stale, fresh, count = split_by_age(full, STALE_DAYS)
+        if stale:
+            rows.append((REVIEW, "agent transcripts", f"{label} · older than {STALE_DAYS}d",
+                         stale, f"{count} files you are unlikely to reopen"))
+        if fresh:
+            rows.append((BLOCKED, "agent transcripts", f"{label} · last {STALE_DAYS}d", fresh,
+                         "recent sessions, still resumable"))
     return rows
 
 

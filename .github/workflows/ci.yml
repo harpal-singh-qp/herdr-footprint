@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  smoke:
+    # Both are declared in the manifest, and the bugs this suite exists to catch
+    # were BSD/GNU divergences that only show up when you actually run there.
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax
+        run: for f in bin/*.sh tests/*.sh; do bash -n "$f"; done
+
+      - name: Python syntax
+        run: python3 -m compileall -q bin
+
+      - name: Smoke tests
+        run: bash tests/smoke.sh
+
+      - name: Scanner runs with no docker, git or du
+        run: |
+          empty=$(mktemp -d)
+          PATH="$empty" "$(command -v python3)" bin/reclaim.py > /dev/null
+
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - run: shellcheck -S warning bin/*.sh tests/*.sh

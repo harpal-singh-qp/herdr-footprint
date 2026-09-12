@@ -65,6 +65,28 @@ PY2
 )
 case "$art" in *FAIL*) bad "artifacts_in: $art" ;; *) ok "artifacts_in finds and sizes build dirs" ;; esac
 
+printf '\ntranscript ageing\n'
+age=$(python3 - "$ROOT" <<'PY2'
+import importlib.util, os, sys, tempfile, time
+spec = importlib.util.spec_from_file_location("reclaim", sys.argv[1] + "/bin/reclaim.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+tmp = tempfile.mkdtemp()
+old = os.path.join(tmp, "old.jsonl"); new = os.path.join(tmp, "new.jsonl")
+open(old, "wb").write(b"x" * 5000); open(new, "wb").write(b"y" * 3000)
+past = time.time() - 200 * 86400
+os.utime(old, (past, past))
+stale, fresh, count = m.split_by_age(tmp, 90)
+print("ok" if (stale, fresh, count) == (5000, 3000, 1) else f"FAIL {stale} {fresh} {count}")
+# Nested files must be counted too: transcripts live several levels down.
+sub = os.path.join(tmp, "a", "b"); os.makedirs(sub)
+deep = os.path.join(sub, "deep.jsonl"); open(deep, "wb").write(b"z" * 1000)
+os.utime(deep, (past, past))
+stale2, _, count2 = m.split_by_age(tmp, 90)
+print("ok" if (stale2, count2) == (6000, 2) else f"FAIL nested {stale2} {count2}")
+PY2
+)
+case "$age" in *FAIL*) bad "split_by_age: $age" ;; *) ok "split_by_age separates stale from fresh, including nested" ;; esac
+
 printf '\nscanner\n'
 out=$(cd "$ROOT" && NO_COLOR=1 timeout 300 python3 bin/reclaim.py 2>&1)
 case "$out" in *"reclaimable space"*) ok "scanner produces a report" ;; *) bad "no report: $out" ;; esac

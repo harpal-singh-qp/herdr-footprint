@@ -8,6 +8,7 @@ Two numbers per space in your [herdr](https://herdr.dev) sidebar: how much disk 
 git worktree occupies, and how much of its context window the busiest agent in it
 has already burned — whichever agent that is.
 
+<img alt="CI" src="https://github.com/harpal-singh-qp/herdr-footprint/actions/workflows/ci.yml/badge.svg">
 <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
 <img alt="herdr" src="https://img.shields.io/badge/herdr-%E2%89%A5%200.7.5-5865a3">
 <img alt="Platforms" src="https://img.shields.io/badge/Linux%20%C2%B7%20macOS-supported-2ea44f">
@@ -141,6 +142,7 @@ already knows the window.
 | `FOOTPRINT_CADENCE_SEC` | `60` | Seconds between push cycles |
 | `FOOTPRINT_REMEASURE_SEC` | `900` | Minimum age before a worktree is walked again |
 | `FOOTPRINT_CONTEXT_WINDOW` | `0` | `0` infers; set e.g. `200000` to pin |
+| `FOOTPRINT_TRANSCRIPT_DAYS` | `90` | Age at which agent transcripts count as stale |
 | `FOOTPRINT_DISK_ICON` | `⛁` | |
 | `FOOTPRINT_CTX_ICON` | `◐` | |
 
@@ -246,8 +248,13 @@ tool read as "0 bytes", a stale cache read as "just measured", a size parser tha
 drops a unit. Those are the ones nobody reports, because nothing looks broken.
 
 Included: every docker unit form through `parse_size`, `mtime` returning `0` rather
-than empty for a missing file, `dir_bytes` failing rather than reporting zero, and a
-full scan with `docker`, `git` and `du` all absent from `PATH`.
+than empty for a missing file, `dir_bytes` failing rather than reporting zero,
+artifact discovery on a synthetic tree, transcript ageing including nested files, and
+a full scan with `docker`, `git` and `du` all absent from `PATH`.
+
+CI runs the suite on **both Linux and macOS**, plus `shellcheck`. The macOS leg is
+not decoration: the two worst bugs this plugin has had were BSD/GNU divergences that
+failed silently and would never have shown up on Linux.
 
 ## Contributing
 
