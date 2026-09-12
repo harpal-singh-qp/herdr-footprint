@@ -151,7 +151,7 @@ already knows the window.
 Sidebar tokens tell you *that* a space is expensive. The reclaim pane tells you
 *what you can do about it*:
 
-<img src="assets/reclaim.png" alt="The reclaim pane: totals for SAFE, REVIEW and BLOCKED, then every item sorted by size with the reason it falls in that class" width="926">
+<img src="assets/reclaim.png" alt="The reclaim pane: SAFE, REVIEW and BLOCKED totals, a count of what is ticked, then every item with a checkbox, its size and the reason it falls in that class" width="1000">
 
 Open it with `footprint.reclaim`, or bind a key:
 
@@ -163,8 +163,8 @@ command = "herdr plugin action invoke reclaim --plugin footprint"
 description = "footprint: what can I reclaim?"
 ```
 
-`r` rescans, `q` closes. The report adapts to the pane width, so it stays readable
-in a narrow split.
+The report adapts to the pane width, so it stays readable in a narrow split, and the
+list is drawn through a viewport rather than printed whole — see the key table below.
 
 ### Movement, and rows that never leave
 
@@ -183,7 +183,7 @@ been present for three days or more says so:
 
 That annotation is the useful one. A row sitting in **SAFE** for three weeks is one
 you keep declining to act on — which is a fact about the rule, not about you. It is
-the signal v0.3 needs before it is allowed to delete anything on its own.
+the signal to trust before letting anything be reclaimed unattended.
 
 The comparison deliberately ignores any scan from the last 12 hours, so pressing `r`
 repeatedly does not collapse the window and report "no change". History is capped at
@@ -292,7 +292,8 @@ description = "footprint: refresh"
 - **Pidfile guard.** A herdr restart cannot stack pollers.
 - **Tokens carry a TTL of three cycles.** A stopped poller fades its numbers out
   rather than leaving a stale figure on screen forever.
-- **Read-only.** v0.2 measures and reports. It never deletes anything.
+- **Nothing happens without a tick and a typed word.** Scanning is read-only; the
+  only code that deletes runs after you confirm, on exactly what you ticked.
 
 State lives in `$HERDR_PLUGIN_STATE_DIR` — a size cache, a pidfile, and a log.
 
@@ -319,6 +320,14 @@ bash tests/smoke.sh
 Covers the failures that produce a **wrong answer** rather than an error — a missing
 tool read as "0 bytes", a stale cache read as "just measured", a size parser that
 drops a unit. Those are the ones nobody reports, because nothing looks broken.
+
+Three files:
+
+| File | Covers |
+| --- | --- |
+| `tests/smoke.sh` | parsing, sizing, ageing, history, missing tools, a full scan |
+| `tests/pane_test.py` | viewport arithmetic and escape-sequence decoding — both were wrong in ways no short list or tall terminal would reveal |
+| `tests/actions_test.py` | that reclaiming acts, and that its fences refuse: a dirty worktree, one you are standing in, and the main checkout are all turned down before a clean one is removed and its bundle verified with `git bundle verify` |
 
 Included: every docker unit form through `parse_size`, `mtime` returning `0` rather
 than empty for a missing file, `dir_bytes` failing rather than reporting zero,
