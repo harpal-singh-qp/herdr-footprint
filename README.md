@@ -168,12 +168,22 @@ in a narrow split.
 
 | Class | Means | Examples |
 | --- | --- | --- |
-| **SAFE** | Rebuildable by definition, or merged and idle ≥ 7 days | idle build cache, dangling images, merged stale worktrees |
-| **REVIEW** | Provably unused, but holds something worth a glance | untagged-but-unused images, unused volumes, agent transcripts |
+| **SAFE** | Rebuildable by definition, or merged and idle ≥ 7 days | idle build cache, dangling images, merged stale worktrees, build artifacts in a worktree you are done with |
+| **REVIEW** | Provably unused, but holds something worth a glance | untagged-but-unused images, unused volumes, agent transcripts, build artifacts in a worktree still in use |
 | **BLOCKED** | A fence failed — **always shown with the reason** | in-use volumes, unmerged branches, uncommitted changes, the worktree you are standing in |
 
 A BLOCKED row is not a failure to classify. It is the answer: *this is why that
 space is not yours yet.* Hiding it would just make you go looking.
+
+**Build artifacts are found and subtracted.** `node_modules`, `target`, `dist`,
+`build`, `.next`, `.turbo` and `vendor` inside each worktree get their own row, and
+those bytes come off the worktree's own figure — `du` already counted them once, and
+listing both would report the same space twice. On a monorepo this is usually the
+single largest reclaimable line: one checkout here reads 2.1 GB, of which 1.5 GB is
+`node_modules`.
+
+Artifacts in a worktree you cannot delete are **REVIEW**, not SAFE: they are still
+rebuildable, but removing them stops a dev server you have running right now.
 
 Figures are reconciled against the tools themselves — build cache excludes shared
 layers, so the total matches `docker system df`'s own RECLAIMABLE column rather than

@@ -140,6 +140,29 @@ def git_repos():
             yield path
 
 
+ARTIFACT_DIRS = ("node_modules", "target", "dist", "build", ".next", ".turbo", "vendor")
+ARTIFACT_DEPTH = 5
+
+
+def artifacts_in(path):
+    """(total bytes, dir count, kinds) of rebuildable directories inside a worktree.
+
+    `-prune` stops find descending into a match, so a 1.5 GB node_modules costs
+    one stat rather than a walk of every package inside it.
+    """
+    expr = []
+    for i, name in enumerate(ARTIFACT_DIRS):
+        expr += (["-o"] if i else []) + ["-name", name]
+    listing = run(["find", path, "-maxdepth", str(ARTIFACT_DEPTH), "-type", "d",
+                   "("] + expr + [")", "-prune", "-print"], timeout=60)
+    dirs = [d for d in listing.splitlines() if d]
+    if not dirs:
+        return 0, 0, ()
+    total = sum(dir_size(d) for d in dirs)
+    kinds = sorted({os.path.basename(d) for d in dirs})
+    return total, len(dirs), tuple(kinds)
+
+
 def worktree_rows(cwd):
     rows = []
     seen = set()
@@ -167,33 +190,50 @@ def worktree_rows(cwd):
             elif not line and path:
                 if path not in seen:
                     seen.add(path)
-                    rows.append(classify_worktree(repo, path, branch, merged, cwd))
+                    rows.extend(classify_worktree(repo, path, branch, merged, cwd))
                 path = branch = None
     return [r for r in rows if r]
 
 
 def classify_worktree(repo, path, branch, merged, cwd):
+    """One row for the worktree, plus at most one for its build artifacts."""
     if not os.path.isdir(path):
-        return None
+        return []
     size = dir_size(path)
     label = f"{os.path.basename(repo)}/{branch or os.path.basename(path)}"
 
+    # Subtracted from the worktree row: `du` already counted these, and listing
+    # both unsubtracted would report the same bytes twice in the totals.
+    art_bytes, art_count, art_kinds = artifacts_in(path)
+    size = max(0, size - art_bytes)
+
+    def with_artifacts(row):
+        if not art_bytes:
+            return [row]
+        # A worktree you cannot delete is one you are working in, where removing
+        # node_modules stops a running dev server. Rebuildable, but not today.
+        cls = REVIEW if row[0] == BLOCKED else SAFE
+        reason = f"{art_count} dirs ({', '.join(art_kinds)}) — rebuildable"
+        if cls is REVIEW:
+            reason += "; the worktree is in use"
+        return [row, (cls, "build artifacts", label, art_bytes, reason)]
+
     if os.path.realpath(path) == os.path.realpath(repo):
-        return (BLOCKED, "git worktree", label, size, "the main checkout")
+        return with_artifacts((BLOCKED, "git worktree", label, size, "the main checkout"))
     if cwd and os.path.realpath(cwd).startswith(os.path.realpath(path)):
-        return (BLOCKED, "git worktree", label, size, "you are standing in it")
+        return with_artifacts((BLOCKED, "git worktree", label, size, "you are standing in it"))
     if run(["git", "-C", path, "status", "--porcelain"]).strip():
-        return (BLOCKED, "git worktree", label, size, "uncommitted changes")
+        return with_artifacts((BLOCKED, "git worktree", label, size, "uncommitted changes"))
     if not branch:
-        return (REVIEW, "git worktree", label, size, "detached HEAD, no branch to check")
+        return with_artifacts((REVIEW, "git worktree", label, size, "detached HEAD, no branch to check"))
     if branch not in merged:
-        return (BLOCKED, "git worktree", label, size, "branch not merged into the base")
+        return with_artifacts((BLOCKED, "git worktree", label, size, "branch not merged into the base"))
 
     idle = idle_days(path)
     if idle is not None and idle >= IDLE_DAYS:
-        return (SAFE, "git worktree", label, size, f"merged and idle {idle}d")
-    return (REVIEW, "git worktree", label, size,
-            f"merged, but active {idle}d ago" if idle is not None else "merged")
+        return with_artifacts((SAFE, "git worktree", label, size, f"merged and idle {idle}d"))
+    return with_artifacts((REVIEW, "git worktree", label, size,
+                           f"merged, but active {idle}d ago" if idle is not None else "merged"))
 
 
 def idle_days(path):

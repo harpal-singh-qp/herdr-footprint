@@ -47,6 +47,24 @@ sys.exit(1 if bad else 0)
 PY
 [ $? -eq 0 ] && ok "parse_size handles every docker unit form" || bad "parse_size mis-parsed a unit"
 
+printf '\nartifact detection\n'
+art=$(python3 - "$ROOT" <<'PY2'
+import importlib.util, sys, tempfile, os, subprocess
+spec = importlib.util.spec_from_file_location("reclaim", sys.argv[1] + "/bin/reclaim.py")
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+tmp = tempfile.mkdtemp()
+os.makedirs(os.path.join(tmp, "node_modules", "pkg"))
+open(os.path.join(tmp, "node_modules", "pkg", "f"), "wb").write(b"x" * 200000)
+os.makedirs(os.path.join(tmp, "dist"))
+total, count, kinds = m.artifacts_in(tmp)
+print("ok" if count == 2 and total > 0 and "node_modules" in kinds else f"FAIL {count} {total} {kinds}")
+# A clean directory must yield nothing, not a zero-byte row.
+print("ok" if m.artifacts_in(tempfile.mkdtemp()) == (0, 0, ()) else "FAIL empty dir")
+subprocess.run(["rm", "-rf", tmp])
+PY2
+)
+case "$art" in *FAIL*) bad "artifacts_in: $art" ;; *) ok "artifacts_in finds and sizes build dirs" ;; esac
+
 printf '\nscanner\n'
 out=$(cd "$ROOT" && NO_COLOR=1 timeout 300 python3 bin/reclaim.py 2>&1)
 case "$out" in *"reclaimable space"*) ok "scanner produces a report" ;; *) bad "no report: $out" ;; esac
