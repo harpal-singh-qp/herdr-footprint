@@ -10,6 +10,13 @@ set -u
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/.." && pwd)"
 pass=0 fail=0
 
+# macOS has no `timeout`; coreutils ships it as `gtimeout` and is not installed by
+# default. Bound the run where we can and just run it where we cannot - the point
+# of these checks is the output, not the bound.
+if   command -v timeout  >/dev/null 2>&1; then bounded() { timeout "$@"; }
+elif command -v gtimeout >/dev/null 2>&1; then bounded() { gtimeout "$@"; }
+else                                           bounded() { shift; "$@"; }; fi
+
 ok()   { pass=$((pass+1)); printf '  \033[32mok\033[0m   %s\n' "$1"; }
 bad()  { fail=$((fail+1)); printf '  \033[31mFAIL\033[0m %s\n' "$1"; }
 is()   { [ "$2" = "$3" ] && ok "$1" || bad "$1 (got '$2', want '$3')"; }
@@ -112,15 +119,15 @@ PY2
 case "$hist" in *FAIL*) bad "history: $hist" ;; *) ok "history records, ages, compares and stays bounded" ;; esac
 
 printf '\nscanner\n'
-out=$(cd "$ROOT" && NO_COLOR=1 timeout 300 python3 bin/reclaim.py 2>&1)
+out=$(cd "$ROOT" && NO_COLOR=1 bounded 300 python3 bin/reclaim.py 2>&1)
 case "$out" in *"reclaimable space"*) ok "scanner produces a report" ;; *) bad "no report: $out" ;; esac
 case "$out" in *"read-only"*) ok "report states it deleted nothing" ;; *) bad "missing read-only notice" ;; esac
 
 # The tools it shells out to may be absent. Absent must mean "no rows", never a
 # crash. Resolve the harness's own binaries first, since PATH is about to go away.
 empty=$(mktemp -d)
-TIMEOUT=$(command -v timeout); PYTHON=$(command -v python3)
-out=$(cd "$ROOT" && NO_COLOR=1 PATH="$empty" "$TIMEOUT" 300 "$PYTHON" bin/reclaim.py 2>&1)
+PYTHON=$(command -v python3)
+out=$(cd "$ROOT" && NO_COLOR=1 PATH="$empty" "$PYTHON" bin/reclaim.py 2>&1)
 case "$out" in *"reclaimable space"*) ok "survives with no docker, git or du on PATH" ;;
                                    *) bad "crashed without its tools: $out" ;; esac
 rm -rf "$empty"
