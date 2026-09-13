@@ -356,8 +356,25 @@ failed silently and would never have shown up on Linux.
 
 ## Contributing
 
-Issues and PRs welcome. The plugin is five small scripts; `bin/collect.sh` pushes the
-tokens and `bin/reclaim.py` does the classifying.
+Issues and pull requests are welcome, and the classification rules especially so.
+
+The whole thing is small scripts — `bin/collect.sh` pushes the sidebar tokens,
+`bin/reclaim.py` classifies, `bin/actions.py` acts, `bin/pane.py` is the interface.
+No build step, so a clone and `herdr plugin link .` is the entire dev loop.
+
+**What would help most:**
+
+- **A verdict you disagree with.** SAFE that you would never delete, or BLOCKED that
+  you think should be reclaimable — those are rule bugs, and they are hard to find
+  without other people's machines.
+- **Another store worth scanning.** pnpm and cargo caches, `~/.gradle`, Xcode
+  DerivedData, other agents' transcript directories.
+- **A platform that breaks it.** The two worst bugs this has had were BSD/GNU
+  divergences that failed silently on macOS while looking fine on Linux.
+
+Run `bash tests/smoke.sh` before opening a PR; CI runs the same suite on Linux and
+macOS. New behaviour wants a test, particularly anything touching a fence — those
+are the checks standing between a classification mistake and someone's worktree.
 
 ## License
 
