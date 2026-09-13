@@ -102,7 +102,7 @@ as it fills and red before it bites:
 | Token | Example | Meaning |
 | --- | --- | --- |
 | `$disk` | `⛁ 840M` | Size of the space's git worktree root (`du -sx`) |
-| `$ctx` | `◐ 7%` | Largest context-window share among the space's agent panes |
+| `$ctx` | `◐ 7%` | Context-window share of the space's busiest **live** agent |
 
 Both fall back to `--` instead of vanishing, so a configured row never collapses.
 
@@ -133,6 +133,16 @@ Two sources, in order:
    cover, and never has to track a transcript format it does not own.
 2. **Claude's own transcript**, so a space still reports something useful when no
    usage plugin is installed.
+
+### Which agent speaks for a space
+
+A space holds many tabs, and old session tabs get left open. Reporting the plain
+maximum meant a parked tab at 90% spoke for a space whose live session was at 33% —
+a number describing work you had already moved on from.
+
+So: the busiest agent that is **working or blocked**, falling back to the busiest of
+all when nothing is live, which keeps a space full of parked sessions honest about
+its worst one.
 
 Source 2 has a wrinkle: Claude transcripts record token usage but never the context
 window. A session that has already passed 200k tokens proves it is on the 1M window,
@@ -331,6 +341,7 @@ Three files:
 | File | Covers |
 | --- | --- |
 | `tests/smoke.sh` | parsing, sizing, ageing, history, missing tools, a full scan |
+| `tests/context_test.py` | which agent speaks for a space, and percentage parsing |
 | `tests/pane_test.py` | viewport arithmetic and escape-sequence decoding — both were wrong in ways no short list or tall terminal would reveal |
 | `tests/actions_test.py` | that reclaiming acts, and that its fences refuse: a dirty worktree, one you are standing in, and the main checkout are all turned down before a clean one is removed and its bundle verified with `git bundle verify` |
 

@@ -24,8 +24,10 @@ WINDOW_SMALL = 200_000
 WINDOW_LARGE = 1_000_000
 TAIL_BYTES = 400_000
 
-# Matches the percentage in values like "⚠️ 83% (827k)" or "31%".
-PERCENT = re.compile(r"(\d{1,3})\s*%")
+# Matches the percentage in values like "⚠️ 83% (827k)", "31%" or "83.5%".
+# The lookbehind matters: without it "91.6%" matches the "6" and reports 6,
+# because the digits nearest the sign win.
+PERCENT = re.compile(r"(?<![\d.])(\d{1,3}(?:\.\d+)?)\s*%")
 
 
 def token_percent(pane):
@@ -36,7 +38,7 @@ def token_percent(pane):
     match = PERCENT.search(str(value))
     if not match:
         return 0
-    pct = int(match.group(1))
+    pct = round(float(match.group(1)))
     return pct if 0 <= pct <= 100 else 0
 
 
@@ -71,14 +73,34 @@ def transcript_percent(pane, forced):
     return 0
 
 
+ACTIVE = ("working", "blocked")
+
+
 def main():
+    """Report the space's context share, preferring the agent actually running.
+
+    A space holds many tabs, and old session tabs get left open. Taking the plain
+    maximum meant a dormant tab sitting at 90% spoke for a space whose live work
+    was at 33% - the number described a session you had already moved on from.
+
+    So: if anything in the space is working or waiting on you, report the busiest
+    of those. Only when nothing is live does the maximum stand in, so a space full
+    of parked sessions still warns about the worst of them.
+    """
     forced = int(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1].isdigit() else 0
     try:
         panes = json.load(sys.stdin)["result"]["panes"]
     except (ValueError, KeyError, TypeError):
         return
-    best = max((token_percent(p) or transcript_percent(p, forced) for p in panes),
-               default=0)
+
+    live, dormant = [], []
+    for pane in panes:
+        pct = token_percent(pane) or transcript_percent(pane, forced)
+        if not pct:
+            continue
+        (live if pane.get("agent_status") in ACTIVE else dormant).append(pct)
+
+    best = max(live) if live else max(dormant, default=0)
     if best:
         print(best)
 

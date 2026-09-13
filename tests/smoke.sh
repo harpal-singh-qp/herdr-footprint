@@ -150,6 +150,10 @@ rm -rf "$empty"
 
 # Deletion is proved in its own file, because it needs real temp trees rather
 # than the pure-function checks above.
+printf '\ncontext per space (see tests/context_test.py)\n'
+if python3 "$ROOT/tests/context_test.py"; then ok "the live agent speaks for the space"
+else bad "context_test.py reported failures"; fi
+
 printf '\npane navigation (see tests/pane_test.py)\n'
 if python3 "$ROOT/tests/pane_test.py"; then ok "viewport follows the cursor and escape sequences decode"
 else bad "pane_test.py reported failures"; fi
