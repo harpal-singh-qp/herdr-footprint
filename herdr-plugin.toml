@@ -1,6 +1,6 @@
 id = "footprint"
 name = "Footprint"
-version = "0.4.0"
+version = "0.4.1"
 min_herdr_version = "0.7.5"
 description = "Per-space disk footprint and context usage in the Herdr sidebar."
 platforms = ["linux", "macos"]
